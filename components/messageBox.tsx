@@ -538,7 +538,7 @@ export default function ChatWindow({
     <div className={`flex-1 h-screen bg-gray-50 flex flex-col ${isMobile ? 'fixed inset-0 z-50' : ''}`}>
       {activeChat ? (
         <>
-          <div className="p-4 border-b flex items-center justify-between bg-white sticky top-0">
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white sticky top-0">
             <div className="flex items-center gap-3">
               {isMobile && (
                 <button 

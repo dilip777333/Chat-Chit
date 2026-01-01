@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import MessageList from "@/components/MessageList";
 import MessageBox from "@/components/messageBox";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function ChatPage() {
   const [activeChat, setActiveChat] = useState<number | null>(1);
@@ -28,25 +29,27 @@ export default function ChatPage() {
   }, [activeChat, isMobile]);
 
   return (
-    <div className="flex h-screen w-full bg-gray-50">
-      {showChatList && (
-        <div className={`${isMobile ? 'w-full' : 'w-[300px]'} shrink-0`}>
-          <MessageList
+    <ProtectedRoute>
+      <div className="flex h-screen w-full bg-gray-50">
+        {showChatList && (
+          <div className={`${isMobile ? 'w-full' : 'w-[300px]'} shrink-0`}>
+            <MessageList
+              activeChat={activeChat}
+              setActiveChat={setActiveChat}
+              isMobile={isMobile}
+              onCloseChat={() => setShowChatList(false)}
+            />
+          </div>
+        )}
+        <div className={`${isMobile && showChatList ? 'hidden' : 'flex-1'}`}>
+          <MessageBox
             activeChat={activeChat}
             setActiveChat={setActiveChat}
             isMobile={isMobile}
-            onCloseChat={() => setShowChatList(false)}
+            onOpenList={() => setShowChatList(true)}
           />
         </div>
-      )}
-      <div className={`${isMobile && showChatList ? 'hidden' : 'flex-1'}`}>
-        <MessageBox
-          activeChat={activeChat}
-          setActiveChat={setActiveChat}
-          isMobile={isMobile}
-          onOpenList={() => setShowChatList(true)}
-        />
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }

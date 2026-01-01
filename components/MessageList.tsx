@@ -331,7 +331,7 @@ export default function ChatListPanel({
   const unreadCount = chats.filter((chat) => chat.unread).length;
 
   return (
-    <div className={`${isMobile ? 'w-full' : 'w-[300px]'} border-r h-screen bg-white flex flex-col`}>
+    <div className={`${isMobile ? 'w-full' : 'w-[300px]'} border-r border-gray-200 h-screen bg-white flex flex-col`}>
       <style jsx>{`
         .thin-scrollbar::-webkit-scrollbar {
           width: 4px;
@@ -345,7 +345,7 @@ export default function ChatListPanel({
         }
       `}</style>
 
-      <div className="p-4 border-b">
+      <div className="p-4 border-b border-gray-200">
         <div className="text-lg font-semibold flex justify-between items-center">
           Messages
           <div className="flex items-center gap-2">
@@ -390,7 +390,7 @@ export default function ChatListPanel({
       </div>
 
       {showCallHistory && (
-        <div className="p-4 border-b bg-white shadow-md z-10 h-screen overflow-y-auto thin-scrollbar">
+        <div className="p-4 border-b border-gray-200 bg-white shadow-md z-10 h-screen overflow-y-auto thin-scrollbar">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-semibold text-gray-700">Call History</h3>
             <button onClick={() => setShowCallHistory(false)} className="p-1 hover:bg-gray-100 rounded-full">
@@ -439,7 +439,7 @@ export default function ChatListPanel({
       )}
 
       {showRequests && (
-        <div className="p-4 border-b bg-white shadow-md z-10 h-screen overflow-y-auto thin-scrollbar">
+        <div className="p-4 border border-gray-200 bg-white shadow-md z-10 h-screen overflow-y-auto thin-scrollbar">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-semibold text-gray-700">Connection Requests</h3>
             <button onClick={() => setShowRequests(false)} className="p-1 hover:bg-gray-100 rounded-full">
@@ -482,7 +482,7 @@ export default function ChatListPanel({
           {filteredChats.map((chat) => (
             <div
               key={chat.id}
-              className={`p-3 border-b hover:bg-gray-50 cursor-pointer ${
+              className={`p-3 border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${
                 activeChat === chat.id ? "bg-blue-50" : ""
               }`}
               onClick={() => handleChatClick(chat.id)}
