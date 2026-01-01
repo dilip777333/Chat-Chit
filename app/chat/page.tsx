@@ -3,11 +3,13 @@ import { useState, useEffect } from "react";
 import MessageList from "@/components/MessageList";
 import MessageBox from "@/components/messageBox";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import ProfileModal from "@/components/ProfileModal";
 
 export default function ChatPage() {
   const [activeChat, setActiveChat] = useState<number | null>(1);
   const [isMobile, setIsMobile] = useState(false);
   const [showChatList, setShowChatList] = useState(true);
+  const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -50,6 +52,9 @@ export default function ChatPage() {
           />
         </div>
       </div>
+      
+      {/* Profile Modal */}
+      <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
     </ProtectedRoute>
   );
 }
