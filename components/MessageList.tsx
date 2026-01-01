@@ -261,7 +261,7 @@ export default function ChatListPanel({
   onCloseChat
 }: { 
   activeChat: number | null; 
-  setActiveChat: (id: number) => void;
+  setActiveChat: (id: number | null) => void;
   isMobile?: boolean;
   onCloseChat?: () => void;
 }) {
@@ -293,7 +293,7 @@ export default function ChatListPanel({
       const newChat = { 
         ...request, 
         unread: true, 
-        status: "accepted",
+        status: "accepted" as const,
         timestamp: Date.now()
       };
       setChats((prev) => [...prev, newChat]);

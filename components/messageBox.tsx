@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Smile, Paperclip, Phone, Video, Mic, MapPin, FileText, Menu } from "lucide-react";
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
-import CallScreen from "@/components/callmodel/page";
+// import CallScreen from "@/components/callmodel/page";
 import { useRouter } from "next/navigation";
 type Message = {
   sender: string;
@@ -223,7 +223,7 @@ export default function ChatWindow({
   onOpenList
 }: { 
   activeChat: number | null; 
-  setActiveChat?: (id: number) => void;
+  setActiveChat?: (id: number | null) => void;
   isMobile?: boolean;
   onOpenList?: () => void;
 }) {
@@ -755,7 +755,7 @@ export default function ChatWindow({
             </div>
           )}
 
-          {isCallActive && (
+          {/*
             <CallScreen
               contactName={chats.find(chat => chat.id === activeChat)?.name || "Contact"}
               contactInitials={getInitials(chats.find(chat => chat.id === activeChat)?.name || "C")}
@@ -764,7 +764,8 @@ export default function ChatWindow({
               onToggleVideo={handleToggleVideo}
               onMinimize={handleToggleMinimize}
             />
-          )}
+          */}
+
         </>
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-500">
