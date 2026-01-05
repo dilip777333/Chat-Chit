@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { request } from "@/lib/services/request";
 import endpoints from "@/lib/services/endpoints";
 import { chatService } from "@/lib/services/chatService";
 import { formatRelativeTime, formatMessageStatus, formatChatListTime } from "@/lib/utils/timeUtils";
 import { Phone, Mail, Loader2, MessageCircle, Users, Send, Camera } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import ProfileDetails from "@/components/ProfileDetails";
 
 interface User {
   id: number;
@@ -31,12 +33,11 @@ interface Message {
 }
 
 export default function AuthChatApp() {
-  const [step, setStep] = useState<"auth" | "otp" | "chat">("auth");
+  const [step, setStep] = useState<"auth" | "otp" | "profile" | "chat">("auth");
   const [contact, setContact] = useState("");
   const [contactType, setContactType] = useState<"email" | "phone">("email");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [chatList, setChatList] = useState<any[]>([]);
   const [searchResults, setSearchResults] = useState<User[]>([]);
@@ -46,6 +47,9 @@ export default function AuthChatApp() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isConnected, setIsConnected] = useState(false);
+  const [tempUser, setTempUser] = useState<User | null>(null);
+  
+  const { isAuthenticated, currentUser, login, logout, updateUser, isLoading } = useAuth();
 
   // Send OTP
   const handleSendOtp = async () => {
@@ -85,12 +89,21 @@ export default function AuthChatApp() {
       const response = await request.post(endpoints.auth.verifyOtp, payload);
       
       if (response.success) {
-        setCurrentUser(response.user);
-        localStorage.setItem("token", response.token);
-        await connectToChat(response.user.id);
-        await loadUsers();
-        await loadChatList(); // Load Telegram style chat list
-        setStep("chat");
+        const user = response.user;
+        setTempUser(user);
+        
+        // Check if user has complete profile
+        if (!user.first_name || !user.last_name || !user.email || !user.phone_number) {
+          // User needs to complete profile
+          setStep("profile");
+        } else {
+          // User has complete profile, proceed to chat
+          login(user, response.token);
+          await connectToChat(user.id);
+          await loadUsers();
+          await loadChatList();
+          setStep("chat");
+        }
       }
     } catch (error: any) {
       alert(error.message || "Failed to verify OTP");
@@ -99,7 +112,38 @@ export default function AuthChatApp() {
     }
   };
 
-  // Connect to chat
+  // Handle profile completion
+  const handleProfileComplete = async (updatedUser: User) => {
+    if (tempUser) {
+      login(updatedUser, localStorage.getItem("token") || "");
+      await connectToChat(updatedUser.id);
+      await loadUsers();
+      await loadChatList();
+      setStep("chat");
+    }
+  };
+
+  // Handle back to OTP from profile
+  const handleBackToOtp = () => {
+    setStep("otp");
+  };
+
+  // Initialize chat when authenticated
+  const initializeChat = async () => {
+    if (isAuthenticated && currentUser) {
+      await connectToChat(currentUser.id);
+      await loadUsers();
+      await loadChatList();
+    }
+  };
+
+  // Initialize on mount if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      initializeChat();
+      setStep("chat");
+    }
+  }, [isAuthenticated, currentUser]);
   const connectToChat = async (userId: number) => {
     try {
       await chatService.connect(userId);
@@ -216,10 +260,45 @@ export default function AuthChatApp() {
     }
   };
 
+  // Render profile details form
+  if (step === "profile" && tempUser) {
+    return (
+      <ProfileDetails
+        currentUser={tempUser}
+        onProfileComplete={handleProfileComplete}
+        onBack={handleBackToOtp}
+      />
+    );
+  }
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If already authenticated, show chat directly
+  if (isAuthenticated && currentUser && step !== "chat") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading chat...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Render auth form
   if (step === "auth") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
@@ -286,7 +365,7 @@ export default function AuthChatApp() {
   // Render OTP verification
   if (step === "otp") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
@@ -349,9 +428,9 @@ export default function AuthChatApp() {
             <button
               onClick={() => {
                 chatService.disconnect();
-                localStorage.removeItem("token");
+                logout();
                 setStep("auth");
-                setCurrentUser(null);
+                setTempUser(null);
               }}
               className="text-red-400 hover:text-red-300 text-sm"
             >
@@ -448,7 +527,13 @@ export default function AuthChatApp() {
                             <span className="text-xs text-gray-400">
                               {formatChatListTime(chat.last_message_time)}
                             </span>
-                            <Camera className="w-4 h-4 text-gray-400" />
+                            {/* Message status indicator */}
+                            {chat.is_last_message_from_me && (
+                              <span className="text-xs text-gray-400">
+                                {chat.message_status === 'seen' ? '✓✓' : 
+                                 chat.message_status === 'sent' ? '✓' : ''}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center justify-between">
@@ -465,7 +550,7 @@ export default function AuthChatApp() {
                             <span>
                               {formatMessageStatus(
                                 true,
-                                chat.unread_count === 0,
+                                chat.is_last_message_read,
                                 chat.last_message_time
                               )}
                             </span>

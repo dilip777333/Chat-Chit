@@ -1,35 +1,80 @@
 "use client";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
+interface User {
+  id: number;
+  name: string;
+  email?: string;
+  phone_number?: string;
+  user_name: string;
+  first_name?: string;
+  last_name?: string;
+  profile_picture?: string;
+}
+
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: () => void;
+  currentUser: User | null;
+  isLoading: boolean;
+  login: (user: User, token: string) => void;
   logout: () => void;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in (simple check for demo)
-    const loggedIn = localStorage.getItem("isLoggedIn") === "true";
-    setIsAuthenticated(loggedIn);
+    // Check for existing auth on mount
+    const token = localStorage.getItem("token");
+    const userData = localStorage.getItem("currentUser");
+    
+    if (token && userData) {
+      try {
+        const user = JSON.parse(userData);
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error("Failed to parse user data:", error);
+        localStorage.removeItem("token");
+        localStorage.removeItem("currentUser");
+      }
+    }
+    setIsLoading(false);
   }, []);
 
-  const login = () => {
+  const login = (user: User, token: string) => {
+    localStorage.setItem("token", token);
+    localStorage.setItem("currentUser", JSON.stringify(user));
+    setCurrentUser(user);
     setIsAuthenticated(true);
-    localStorage.setItem("isLoggedIn", "true");
   };
 
   const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("currentUser");
+    setCurrentUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem("isLoggedIn");
+  };
+
+  const updateUser = (user: User) => {
+    localStorage.setItem("currentUser", JSON.stringify(user));
+    setCurrentUser(user);
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ 
+      isAuthenticated, 
+      currentUser, 
+      isLoading, 
+      login, 
+      logout, 
+      updateUser 
+    }}>
       {children}
     </AuthContext.Provider>
   );

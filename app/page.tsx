@@ -1,6 +1,6 @@
 "use client";
-import AuthChatApp from "@/components/AuthChatApp";
+import App from "@/components/App";
 
 export default function Home() {
-  return <AuthChatApp />;
+  return <App />;
 }
