@@ -4,18 +4,6 @@ import { useRouter } from "next/navigation";
 import { MessageSquare, Mail, Phone, ArrowLeft, Check, User, Camera, Upload, ChevronLeft, ChevronRight, Shield, Users, Zap, ArrowUpDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Static user data for demo
-const staticUsers = [
-  {
-    phone: "0123456789",
-    email: "dummy@gmail.com",
-    firstName: "dummy",
-    lastName: "user",
-    username: "dummy-user",
-    profileImage: null
-  }
-];
-
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
@@ -134,15 +122,15 @@ export default function LoginPage() {
     // Simulate profile update API call
     setTimeout(() => {
       setIsLoading(false);
-      alert("Profile updated successfully!");
+      setShowRegistration(false);
     }, 1000);
   };
 
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Background Image */}
-      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat" 
-           style={{ backgroundImage: "url('/images/main-bg.jpg')" }}>
+      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700" 
+           style={{ backgroundImage: showRegistration ? "url('/images/form.jpg')" : "url('/images/main-bg.jpg')" }}>
       </div>
 
       {/* Main Content */}
@@ -309,8 +297,9 @@ export default function LoginPage() {
 
       {/* Registration Form Overlay */}
       {showRegistration && (
-        <div className="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto border border-gray-200">
+        <div className="fixed inset-0 bg-cover bg-center bg-no-repeat flex items-center justify-center z-50 p-4" 
+             style={{ backgroundImage: "url('/images/form.jpg')" }}>
+          <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto border border-gray-200">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-800">Complete Your Profile</h2>
               <button
@@ -457,8 +446,9 @@ export default function LoginPage() {
 
       {/* OTP Input Modal */}
       {showOtpInput && (
-        <div className="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md border border-gray-200">
+        <div className="fixed inset-0 bg-cover bg-center bg-no-repeat flex items-center justify-center sm:justify-start z-50 p-4" 
+             style={{ backgroundImage: "url('/images/otp-bg.jpg')" }}>
+          <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl shadow-xl p-6 w-full max-w-md border border-gray-200 sm:ml-60">
             <div className="text-center mb-6">
               <button
                 onClick={handleBack}
