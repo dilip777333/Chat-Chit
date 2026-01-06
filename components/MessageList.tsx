@@ -1,6 +1,8 @@
 "use client";
 import { Search, UserPlus, X, Phone, PhoneMissed, PhoneOutgoing } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Dispatch, SetStateAction } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { chatService } from "@/lib/services/chatService";
 
 type CallHistory = {
   id: number;
@@ -21,231 +23,10 @@ type Chat = {
   avatar: string;
   status: "request" | "accepted" | "denied";
   timestamp?: number;
+  unread_count?: number;
+  is_last_message_from_me?: boolean;
+  message_status?: 'sent' | 'seen' | 'received';
 };
-
-const initialChats: Chat[] = [
-  {
-    id: 1,
-    type: "personal",
-    name: "Running Club Member",
-    message: "Let's meet at 7am tomorrow",
-    time: "11:42 AM",
-    unread: true,
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setHours(11, 42, 0) // Today 11:42 AM
-  },
-  {
-    id: 2,
-    type: "personal",
-    name: "Andre Silva",
-    message: "You: Sounds good!",
-    time: "12:11 AM",
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setHours(0, 11, 0) // Today 12:11 AM
-  },
-  {
-    id: 3,
-    type: "personal",
-    name: "Work Team Member",
-    message: "The report is ready for review",
-    time: "Yesterday",
-    unread: false,
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setDate(new Date().getDate() - 1) // Yesterday
-  },
-  {
-    id: 4,
-    type: "personal",
-    name: "Maria Garcia",
-    message: "Are we still on for lunch?",
-    time: "Yesterday",
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setDate(new Date().getDate() - 1) // Yesterday
-  },
-  {
-    id: 5,
-    type: "personal",
-    name: "Book Club Member",
-    message: "Finished chapter 5 last night",
-    time: "Monday",
-    unread: true,
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setDate(new Date().getDate() - 3) // 3 days ago (Monday)
-  },
-  {
-    id: 6,
-    type: "personal",
-    name: "Yoga Enthusiast",
-    message: "Don't forget mats for tomorrow",
-    time: "2:30 PM",
-    unread: false,
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setHours(14, 30, 0) // Today 2:30 PM
-  },
-  {
-    id: 7,
-    type: "personal",
-    name: "Project Manager",
-    message: "Deadline moved to Friday",
-    time: "10:15 AM",
-    unread: true,
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setHours(10, 15, 0) // Today 10:15 AM
-  },
-  {
-    id: 8,
-    type: "personal",
-    name: "Foodie Friend",
-    message: "The new Italian place is amazing!",
-    time: "7:45 PM",
-    unread: true,
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setHours(19, 45, 0) // Today 7:45 PM
-  },
-  {
-    id: 9,
-    type: "personal",
-    name: "Travel Buddy",
-    message: "Flights are booked for Bali!",
-    time: "Yesterday",
-    unread: false,
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setDate(new Date().getDate() - 1) // Yesterday
-  },
-  {
-    id: 10,
-    type: "personal",
-    name: "Study Partner",
-    message: "Practice exam uploaded",
-    time: "4:20 PM",
-    unread: true,
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setHours(16, 20, 0) // Today 4:20 PM
-  },
-  {
-    id: 11,
-    type: "personal",
-    name: "Olivia Wilson",
-    message: "You: Thanks for the recommendation!",
-    time: "9:30 AM",
-    unread: false,
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setHours(9, 30, 0) // Today 9:30 AM
-  },
-  {
-    id: 12,
-    type: "personal",
-    name: "Kwame Mensah",
-    message: "Call me when you're free",
-    time: "Yesterday",
-    unread: true,
-    avatar: "",
-    status: "accepted",
-    timestamp: new Date().setDate(new Date().getDate() - 1) // Yesterday
-  },
-];
-
-const initialRequests: Chat[] = [
-  {
-    id: 13,
-    type: "personal",
-    name: "Sophie Chen",
-    message: "legal team approved everything",
-    time: "3:15 PM",
-    unread: false,
-    avatar: "",
-    status: "request",
-    timestamp: new Date().setHours(15, 15, 0) // Today 3:15 PM
-  },
-  {
-    id: 14,
-    type: "personal",
-    name: "Diego Rodriguez",
-    message: "Let's reschedule for Thursday",
-    time: "11:20 AM",
-    unread: true,
-    avatar: "",
-    status: "request",
-    timestamp: new Date().setHours(11, 20, 0) // Today 11:20 AM
-  },
-  {
-    id: 15,
-    type: "personal",
-    name: "Fatima Al-Mansoori",
-    message: "The package has arrived",
-    time: "Monday",
-    unread: false,
-    avatar: "",
-    status: "request",
-    timestamp: new Date().setDate(new Date().getDate() - 3) // 3 days ago (Monday)
-  },
-  {
-    id: 16,
-    type: "personal",
-    name: "Sophie Williams",
-    message: "The documents are signed",
-    time: "3:15 PM",
-    unread: false,
-    avatar: "",
-    status: "request",
-    timestamp: new Date().setHours(15, 15, 0) // Today 3:15 PM
-  },
-  {
-    id: 17,
-    type: "personal",
-    name: "Diego Rodriguez",
-    message: "Morning would work best",
-    time: "11:20 AM",
-    unread: true,
-    avatar: "",
-    status: "request",
-    timestamp: new Date().setHours(11, 20, 0) // Today 11:20 AM
-  },
-  {
-    id: 18,
-    type: "personal",
-    name: "Fatima Al-Mansoori",
-    message: "Your order has been delivered",
-    time: "Monday",
-    unread: false,
-    avatar: "",
-    status: "request",
-    timestamp: new Date().setDate(new Date().getDate() - 3) // 3 days ago (Monday)
-  },
-  {
-    id: 19,
-    type: "personal",
-    name: "Diego Rodriguez",
-    message: "Can we move our meeting?",
-    time: "11:20 AM",
-    unread: true,
-    avatar: "",
-    status: "request",
-    timestamp: new Date().setHours(11, 20, 0) // Today 11:20 AM
-  },
-  {
-    id: 20,
-    type: "personal",
-    name: "Fatima",
-    message: "The package is ready",
-    time: "Monday",
-    unread: false,
-    avatar: "",
-    status: "request",
-    timestamp: new Date().setDate(new Date().getDate() - 3) // 3 days ago (Monday)
-  },
-];
 
 const initialCallHistory: CallHistory[] = [
   { id: 1, contactId: 1, name: "Running Club Member", type: "outgoing", time: "Today, 11:42 AM", duration: "5:32" },
@@ -258,24 +39,37 @@ export default function ChatListPanel({
   activeChat, 
   setActiveChat,
   isMobile,
-  onCloseChat
+  onCloseChat,
+  chats,
+  setChats,
+  onAddNewChat,
+  onSelectChat
 }: { 
-  activeChat: number | null; 
-  setActiveChat: (id: number | null) => void;
+  activeChat: { id: number } | null; 
+  setActiveChat: (id: number) => void;
   isMobile?: boolean;
   onCloseChat?: () => void;
+  chats: Chat[];
+  setChats: Dispatch<SetStateAction<Chat[]>>;
+  onAddNewChat: (chat: Chat) => void;
+  onSelectChat: (id: number) => Promise<void>;
 }) {
+  const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [chats, setChats] = useState<Chat[]>(initialChats);
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
-  const [requests, setRequests] = useState<Chat[]>(initialRequests);
+  const [searchResults, setSearchResults] = useState<Chat[]>([]);
+  const [requests, setRequests] = useState<Chat[]>([]);
   const [callHistory, setCallHistory] = useState<CallHistory[]>(initialCallHistory);
   const [showRequests, setShowRequests] = useState(false);
   const [showCallHistory, setShowCallHistory] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
+    if (!Array.isArray(chats)) return;
     const sortedChats = [...chats].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    
     if (searchTerm) {
       setFilteredChats(
         sortedChats.filter((chat) =>
@@ -284,6 +78,49 @@ export default function ChatListPanel({
       );
     } else {
       setFilteredChats(sortedChats);
+    }
+  }, [searchTerm, chats]);
+
+  useEffect(() => {
+    const q = searchTerm.trim();
+    if (q.length >= 2) {
+      setIsSearching(true);
+      const delayDebounceFn = setTimeout(() => {
+        const fetchUsers = async () => {
+          try {
+            const users = await chatService.searchUsers(q);
+            
+            // Filter out users that are already in our chat list
+            const existingChatIds = new Set(chats.map(c => c.id));
+            
+            const transformedUsers = users
+              .filter((user: any) => !existingChatIds.has(user.id))
+              .map((user: any) => ({
+                id: user.id,
+                type: "personal",
+                name: user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.user_name,
+                message: ``,
+                time: '',
+                avatar: user.profile_picture || "",
+                status: "accepted" as const,
+              }));
+            setSearchResults(transformedUsers);
+          } catch (error) {
+            console.error('Error searching users:', error);
+          } finally {
+            setIsSearching(false);
+          }
+        };
+        fetchUsers();
+      }, 500);
+
+      return () => {
+        clearTimeout(delayDebounceFn);
+        // We don't want to set isSearching false here because the next effect will set it true
+      };
+    } else {
+      setSearchResults([]);
+      setIsSearching(false);
     }
   }, [searchTerm, chats]);
 
@@ -296,7 +133,7 @@ export default function ChatListPanel({
         status: "accepted" as const,
         timestamp: Date.now()
       };
-      setChats((prev) => [...prev, newChat]);
+      setChats((prev: Chat[]) => [...prev, newChat]);
       setRequests((prev) => prev.filter((r) => r.id !== requestId));
       setSelectedRequest(null);
       setActiveChat(requestId);
@@ -306,32 +143,78 @@ export default function ChatListPanel({
   const handleDeny = (requestId: number) => {
     setRequests((prev) => prev.filter((r) => r.id !== requestId));
     setSelectedRequest(null);
-    if (activeChat === requestId) {
-      setActiveChat(null);
+    if (activeChat?.id === requestId) {
+      if (onCloseChat) onCloseChat();
     }
   };
 
   const handleRequestClick = (requestId: number) => {
     setSelectedRequest(requestId);
-    setActiveChat(requestId);
+    // This component should not set the active chat directly for requests.
+    // It should be handled by the parent component or another mechanism.
+    // For now, we just select it visually.
+    // setActiveChat(requestId);
   };
 
   const handleChatClick = (id: number) => {
-    setActiveChat(id);
-    setChats((prevChats) =>
-      prevChats.map((chat) =>
-        chat.id === id ? { ...chat, unread: false } : chat
-      )
-    );
+    onSelectChat(id);
+    setSearchTerm("");
+    setSearchResults([]);
+
     if (isMobile && onCloseChat) {
       onCloseChat();
     }
   };
 
-  const unreadCount = chats.filter((chat) => chat.unread).length;
+  const oldHandleChatClick = (id: number) => {
+    const chatExists = Array.isArray(chats) && chats.some(chat => chat.id === id);
+
+    if (chatExists) {
+      setActiveChat(id);
+      setChats((prevChats: Chat[]) =>
+        prevChats.map((chat: Chat) =>
+          chat.id === id ? { ...chat, unread: false } : chat
+        )
+      );
+    } else {
+      const userFromSearch = searchResults.find(user => user.id === id);
+      if (userFromSearch) {
+        const newChat: Chat = {
+          ...userFromSearch,
+          timestamp: Date.now(),
+        };
+        onAddNewChat(newChat);
+      }
+    }
+
+    setSearchTerm("");
+    setSearchResults([]);
+
+    if (isMobile && onCloseChat) {
+      onCloseChat();
+    }
+  };
+
+  const unreadCount = Array.isArray(chats) ? chats.filter((chat) => chat.unread).length : 0;
+
+  if (loading) {
+    return (
+      <div className={`${isMobile ? 'w-full' : 'w-75'} border-r border-gray-200 h-screen bg-white flex flex-col`}>
+        <div className="p-4 border-b border-gray-200">
+          <div className="text-lg font-semibold">Messages</div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+            <p className="text-gray-500 text-sm">Loading chats...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`${isMobile ? 'w-full' : 'w-[300px]'} border-r border-gray-200 h-screen bg-white flex flex-col`}>
+    <div className={`${isMobile ? 'w-full' : 'w-75'} border-r border-gray-200 h-screen bg-white flex flex-col`}>
       <style jsx>{`
         .thin-scrollbar::-webkit-scrollbar {
           width: 4px;
@@ -348,34 +231,7 @@ export default function ChatListPanel({
       <div className="p-4 border-b border-gray-200">
         <div className="text-lg font-semibold flex justify-between items-center">
           Messages
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setShowCallHistory(!showCallHistory);
-                setShowRequests(false);
-              }}
-              className="relative"
-            >
-              <Phone className="w-5 h-5 text-gray-600" />
-            </button>
-            <button
-              onClick={() => {
-                setShowRequests(!showRequests);
-                setShowCallHistory(false);
-              }}
-              className="relative"
-            >
-              <UserPlus className="w-5 h-5 text-gray-600" />
-              {requests.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
-                  {requests.length}
-                </span>
-              )}
-            </button>
-            <span className="text-xs text-white bg-blue-600 px-2 py-0.5 rounded-full">
-              {unreadCount}
-            </span>
-          </div>
+          
         </div>
         <div className="mt-3 relative">
           <input
@@ -479,43 +335,107 @@ export default function ChatListPanel({
 
       {!showRequests && !showCallHistory && (
         <div className="flex-1 overflow-y-auto thin-scrollbar">
-          {filteredChats.map((chat) => (
-            <div
-              key={chat.id}
-              className={`p-3 border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${
-                activeChat === chat.id ? "bg-blue-50" : ""
-              }`}
-              onClick={() => handleChatClick(chat.id)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                  {chat.avatar ? (
-                    <img
-                      src={chat.avatar}
-                      alt={chat.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-sm">{chat.name.charAt(0)}</span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center">
-                    <div className="font-medium truncate">{chat.name}</div>
-                    <div className="text-xs text-gray-500">{chat.time}</div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div className="text-gray-500 text-xs truncate">
-                      {chat.message}
-                    </div>
-                    {chat.unread && (
-                      <div className="w-2 h-2 rounded-full bg-blue-500 ml-2"></div>
-                    )}
-                  </div>
-                </div>
+          {searchTerm && (
+            <div className="bg-gray-50 border-b border-gray-200">
+              <div className="p-3 flex justify-between items-center">
+                <h3 className="text-sm font-semibold text-gray-700">Global Search</h3>
+                {isSearching && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                )}
               </div>
+              
+              {searchResults.length > 0 ? (
+                searchResults.map((chat) => (
+                  <div
+                    key={chat.id}
+                    className={`p-3 border-b border-gray-100 hover:bg-white cursor-pointer transition-colors`}
+                    onClick={() => handleChatClick(chat.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold overflow-hidden">
+                        {chat.avatar ? (
+                          <img
+                            src={chat.avatar}
+                            alt={chat.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm">{chat.name.charAt(0)}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate text-gray-900">{chat.name}</div>
+                        <div className="text-xs text-gray-500">New Chat</div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                !isSearching && searchTerm.length >= 2 && filteredChats.length === 0 && (
+                  <div className="p-6 text-center">
+                    <p className="text-sm text-gray-500">No users found for "{searchTerm}"</p>
+                  </div>
+                )
+              )}
             </div>
-          ))}
+          )}
+
+          {filteredChats.length > 0 ? (
+            <div>
+              {searchTerm && <h3 className="p-3 text-sm font-semibold text-gray-700 bg-white">Recent Chats</h3>}
+              {filteredChats.map((chat) => {
+                const isActive = activeChat && (
+                  (typeof activeChat === 'number' && activeChat === chat.id) ||
+                  (activeChat.id === chat.id) ||
+                  (activeChat.other_user && activeChat.other_user.id === chat.id)
+                );
+                
+                return (
+                  <div
+                    key={chat.id}
+                    className={`p-3 border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${
+                      isActive ? "bg-blue-50" : ""
+                    }`}
+                    onClick={() => handleChatClick(chat.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                        {chat.avatar ? (
+                          <img
+                            src={chat.avatar}
+                            alt={chat.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm">{chat.name.charAt(0)}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center">
+                          <div className="font-medium truncate">{chat.name}</div>
+                          <div className="text-xs text-gray-500">{chat.time}</div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <div className="text-gray-500 text-xs truncate">
+                            {chat.message}
+                          </div>
+                          {chat.unread && (
+                            <div className="w-2 h-2 rounded-full bg-blue-500 ml-2"></div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            !searchTerm && (
+              <div className="p-10 text-center">
+                <p className="text-gray-500 text-sm">No chats yet. Search for someone to start chatting!</p>
+              </div>
+            )
+          )}
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Base URL should point to your backend server root.
-// Backend (Express) runs on PORT 5000 and already prefixes routes with `/v1/api`.
+// Backend (Express) runs on PORT 5001 and already prefixes routes with `/v1/api`.
 // Automatically detect network IP if accessing via network, otherwise use localhost
 const getBaseURL = () => {
   if (process.env.NEXT_PUBLIC_API_BASE_URL) {
@@ -13,11 +13,11 @@ const getBaseURL = () => {
     const hostname = window.location.hostname;
     // If hostname is not localhost, use the same hostname for backend
     if (hostname !== "localhost" && hostname !== "127.0.0.1") {
-      return `http://${hostname}:5000`;
+      return `http://${hostname}:5001`;
     }
   }
   
-  return "http://localhost:5000";
+  return "http://localhost:5001";
 };
 
 const baseURL = getBaseURL();

@@ -15,6 +15,7 @@ interface User {
 interface AuthContextType {
   isAuthenticated: boolean;
   currentUser: User | null;
+  token: string | null;
   isLoading: boolean;
   login: (user: User, token: string) => void;
   logout: () => void;
@@ -26,17 +27,19 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Check for existing auth on mount
-    const token = localStorage.getItem("token");
+    const storedToken = localStorage.getItem("token");
     const userData = localStorage.getItem("currentUser");
     
-    if (token && userData) {
+    if (storedToken && userData) {
       try {
         const user = JSON.parse(userData);
         setCurrentUser(user);
+        setToken(storedToken);
         setIsAuthenticated(true);
       } catch (error) {
         console.error("Failed to parse user data:", error);
@@ -51,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("token", token);
     localStorage.setItem("currentUser", JSON.stringify(user));
     setCurrentUser(user);
+    setToken(token);
     setIsAuthenticated(true);
   };
 
@@ -58,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("token");
     localStorage.removeItem("currentUser");
     setCurrentUser(null);
+    setToken(null);
     setIsAuthenticated(false);
   };
 
@@ -70,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{ 
       isAuthenticated, 
       currentUser, 
+      token,
       isLoading, 
       login, 
       logout, 

@@ -4,6 +4,9 @@ import { Send, Smile, Paperclip, Phone, Video, Mic, MapPin, FileText, Menu } fro
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 // import CallScreen from "@/components/callmodel/page";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { chatService } from "@/lib/services/chatService";
+
 type Message = {
   sender: string;
   text: string;
@@ -17,217 +20,26 @@ type Chat = {
   id: number;
   name: string;
   status: 'request' | 'accepted' | 'denied';
+  avatar?: string;
 };
-
-const chatData: Record<number, Message[]> = {
-  1: [
-    { sender: "You", text: "Are you joining the run tomorrow?", time: "11:30 AM", isYou: true },
-    { sender: "Running Partner", text: "I'll be there! 7am at the park?", time: "11:35 AM" },
-    { sender: "You", text: "Can we make it 7:30? I have to drop my kids first", time: "11:40 AM", isYou: true },
-    { sender: "Running Partner", text: "7:30 works for me", time: "11:45 AM" },
-    { sender: "You", text: "Let's meet at 7:30 tomorrow", time: "11:42 AM", isYou: true }
-  ],
-  2: [
-    { sender: "Andre Silva", text: "Hey, did you see the game last night?", time: "12:00 AM" },
-    { sender: "You", text: "Yeah! That last goal was incredible", time: "12:02 AM", isYou: true },
-    { sender: "Andre Silva", text: "Right? Best match of the season", time: "12:05 AM" },
-    { sender: "You", text: "Sounds good!", time: "12:11 AM", isYou: true }
-  ],
-  3: [
-    { sender: "Work Colleague", text: "I've finished the quarterly report", time: "9:25 AM" },
-    { sender: "You", text: "Great, I'll review it after lunch", time: "9:30 AM", isYou: true },
-    { sender: "Work Colleague", text: "The report is ready for review", time: "9:30 AM" },
-    { sender: "You", text: "I've added the financials section", time: "10:00 AM", isYou: true }
-  ],
-  4: [
-    { sender: "Maria Garcia", text: "Are you free for lunch tomorrow?", time: "1:25 PM" },
-    { sender: "You", text: "What time were you thinking?", time: "1:28 PM", isYou: true },
-    { sender: "Maria Garcia", text: "Are we still on for lunch?", time: "1:30 PM" },
-    { sender: "You", text: "1pm at the usual place?", time: "1:35 PM", isYou: true }
-  ],
-  5: [
-    { sender: "Book Friend", text: "Just finished chapter 5 - what a plot twist!", time: "8:40 PM" },
-    { sender: "You", text: "I know! Didn't see that coming", time: "8:42 PM", isYou: true },
-    { sender: "Book Friend", text: "Finished chapter 5 last night", time: "8:45 PM" },
-    { sender: "You", text: "Wait till you get to chapter 7!", time: "8:50 PM", isYou: true }
-  ],
-  6: [
-    { sender: "Yoga Friend", text: "Don't forget mats for tomorrow's session", time: "2:25 PM" },
-    { sender: "You", text: "I'll bring two extra mats", time: "2:28 PM", isYou: true },
-    { sender: "Yoga Friend", text: "Don't forget mats for tomorrow", time: "2:30 PM" },
-    { sender: "You", text: "I can bring the essential oils", time: "2:35 PM", isYou: true }
-  ],
-  7: [
-    { sender: "Project Lead", text: "Good news - client extended the deadline", time: "10:10 AM" },
-    { sender: "You", text: "That's a relief!", time: "10:12 AM", isYou: true },
-    { sender: "Project Lead", text: "Deadline moved to Friday", time: "10:15 AM" },
-    { sender: "You", text: "Let's use the extra time for QA", time: "10:20 AM", isYou: true }
-  ],
-  8: [
-    { sender: "Foodie Friend", text: "Just tried the new Italian place downtown", time: "7:40 PM" },
-    { sender: "You", text: "How was the pasta?", time: "7:42 PM", isYou: true },
-    { sender: "Foodie Friend", text: "The new Italian place is amazing!", time: "7:45 PM" },
-    { sender: "You", text: "Their tiramisu is to die for", time: "7:50 PM", isYou: true }
-  ],
-  9: [
-    { sender: "Travel Companion", text: "Just booked our flights!", time: "Yesterday 3:00 PM" },
-    { sender: "You", text: "What dates did you get?", time: "Yesterday 3:05 PM", isYou: true },
-    { sender: "Travel Companion", text: "Flights are booked for Bali!", time: "Yesterday 3:10 PM" },
-    { sender: "You", text: "I'll handle the villa booking", time: "Yesterday 3:15 PM", isYou: true }
-  ],
-  10: [
-    { sender: "Study Buddy", text: "I've uploaded the practice exam", time: "4:15 PM" },
-    { sender: "You", text: "Thanks! These look challenging", time: "4:18 PM", isYou: true },
-    { sender: "Study Buddy", text: "Practice exam uploaded", time: "4:20 PM" },
-    { sender: "You", text: "Let's review together tomorrow", time: "4:25 PM", isYou: true }
-  ],
-  11: [
-    { sender: "Olivia Wilson", text: "That restaurant you recommended was perfect!", time: "9:25 AM" },
-    { sender: "You", text: "Glad you liked it!", time: "9:28 AM", isYou: true },
-    { sender: "Olivia Wilson", text: "Thanks for the recommendation!", time: "9:30 AM" },
-    { sender: "You", text: "We should go together next time", time: "9:32 AM", isYou: true }
-  ],
-  12: [
-    { sender: "Kwame Mensah", text: "Need to discuss the contract terms", time: "Yesterday 2:00 PM" },
-    { sender: "You", text: "I'm in meetings all afternoon", time: "Yesterday 2:05 PM", isYou: true },
-    { sender: "Kwame Mensah", text: "Call me when you're free", time: "Yesterday 2:10 PM" },
-    { sender: "You", text: "Will do after 6pm", time: "Yesterday 2:12 PM", isYou: true }
-  ],
-  13: [
-    { sender: "Sophie Chen", text: "The legal team has approved everything", time: "3:10 PM" },
-    { sender: "You", text: "That was fast!", time: "3:12 PM", isYou: true },
-    { sender: "Sophie Chen", text: "The documents are signed", time: "3:15 PM" },
-    { sender: "You", text: "I'll notify the client", time: "3:18 PM", isYou: true }
-  ],
-  14: [
-    { sender: "Diego Rodriguez", text: "Can we move our meeting to Thursday?", time: "11:15 AM" },
-    { sender: "You", text: "Let me check my calendar", time: "11:18 AM", isYou: true },
-    { sender: "Diego Rodriguez", text: "Morning would work best", time: "11:19 AM" },
-    { sender: "You", text: "Let's reschedule for Thursday", time: "11:20 AM", isYou: true }
-  ],
-  15: [
-    { sender: "Fatima Al-Mansoori", text: "Your order has been delivered", time: "Monday 10:00 AM" },
-    { sender: "You", text: "Great! Was everything included?", time: "Monday 10:05 AM", isYou: true },
-    { sender: "Fatima Al-Mansoori", text: "The package has arrived", time: "Monday 10:10 AM" },
-    { sender: "You", text: "Perfect, thanks!", time: "Monday 10:12 AM", isYou: true }
-  ]
-};
-
-const chats: Chat[] = [
-  {
-    id: 1,
-    name: "Running Club Member",
-    status: "accepted"
-  },
-  {
-    id: 2,
-    name: "Andre Silva",
-    status: "accepted"
-  },
-  {
-    id: 3,
-    name: "Work Team Member",
-    status: "accepted"
-  },
-  {
-    id: 4,
-    name: "Maria Garcia",
-    status: "accepted"
-  },
-  {
-    id: 5,
-    name: "Book Club Member",
-    status: "accepted"
-  },
-  {
-    id: 6,
-    name: "Yoga Enthusiast",
-    status: "accepted"
-  },
-  {
-    id: 7,
-    name: "Project Manager",
-    status: "accepted"
-  },
-  {
-    id: 8,
-    name: "Foodie Friend",
-    status: "accepted"
-  },
-  {
-    id: 9,
-    name: "Travel Buddy",
-    status: "accepted"
-  },
-  {
-    id: 10,
-    name: "Study Partner",
-    status: "accepted"
-  },
-  {
-    id: 11,
-    name: "Olivia Wilson",
-    status: "accepted"
-  },
-  {
-    id: 12,
-    name: "Kwame Mensah",
-    status: "accepted"
-  },
-  {
-    id: 13,
-    name: "Sophie Chen",
-    status: "request"
-  },
-  {
-    id: 14,
-    name: "Diego Rodriguez",
-    status: "request"
-  },
-  {
-    id: 15,
-    name: "Fatima Al-Mansoori",
-    status: "request"
-  },
-  {
-    id: 16,
-    name: "Sophie Williams",
-    status: "request"
-  },
-  {
-    id: 17,
-    name: "Diego Rodriguez",
-    status: "request"
-  },
-  {
-    id: 18,
-    name: "Fatima Al-Mansoori",
-    status: "request"
-  },
-  {
-    id: 19,
-    name: "Diego Rodriguez",
-    status: "request"
-  },
-  {
-    id: 20,
-    name: "Fatima",
-    status: "request"
-  }
-];
 
 export default function ChatWindow({ 
   activeChat, 
   setActiveChat,
   isMobile,
-  onOpenList
+  onOpenList,
+  chats,
+  newlyCreatedChat
 }: { 
-  activeChat: number | null; 
-  setActiveChat?: (id: number | null) => void;
+  activeChat: any | null; 
+  setActiveChat?: (chat: any | null) => void;
   isMobile?: boolean;
   onOpenList?: () => void;
+  chats: Chat[];
+  newlyCreatedChat?: Chat | null;
 }) {
   const router = useRouter();
+  const { currentUser } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -248,16 +60,62 @@ export default function ChatWindow({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const currentChat = chats.find(chat => chat.id === activeChat);
+  const currentChat = activeChat && activeChat.other_user ? {
+    id: activeChat.id,
+    name: activeChat.other_user.first_name ? `${activeChat.other_user.first_name} ${activeChat.other_user.last_name}` : activeChat.other_user.user_name,
+    avatar: activeChat.other_user.profile_picture,
+    status: 'accepted'
+  } : null;
   const isRequest = currentChat?.status === 'request' && !acceptedChats.includes(activeChat!);
 
   useEffect(() => {
-    if (activeChat) {
-      setMessages(chatData[activeChat] || []);
-    } else {
-      setMessages([]);
-    }
-  }, [activeChat]);
+    const fetchMessages = async () => {
+      if (activeChat && activeChat.id && currentUser) {
+        try {
+          const history = await chatService.getMessagesByChatId(activeChat.id);
+          const transformedMessages = history.messages.map((msg: any) => ({
+            sender: msg.sender_id === currentUser.id ? "You" : currentChat?.name || "",
+            text: msg.message_text,
+            time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isYou: msg.sender_id === currentUser.id,
+            type: msg.message_type as 'text' | 'image' | 'document' | 'location' | 'audio',
+          }));
+          setMessages(transformedMessages);
+        } catch (error) {
+          console.error('Error fetching chat history:', error);
+          setMessages([]);
+        }
+      }
+    };
+
+    fetchMessages();
+  }, [activeChat, currentUser, currentChat?.name]);
+
+  useEffect(() => {
+    const handleReceiveMessage = (msg: any) => {
+      // Only add message if it belongs to the active chat
+      if (activeChat && msg.chatId === activeChat.id) {
+        const newMsg: Message = {
+          sender: currentChat?.name || "Other",
+          text: msg.message,
+          time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isYou: false,
+          type: msg.messageType as any || 'text',
+        };
+        setMessages(prev => [...prev, newMsg]);
+      }
+    };
+
+    chatService.onReceiveMessage(handleReceiveMessage);
+
+    return () => {
+      // We don't have a way to remove just one listener easily with the current chatService
+      // but we could implement it if needed. For now removeAllListeners might be too broad
+      // if multiple components use it, but here it's likely fine.
+      // Better: update chatService to allow removing specific listeners or just leave it for now
+      // as it's a singleton.
+    };
+  }, [activeChat, currentChat?.name]);
 
   useEffect(() => {
     scrollToBottom();
@@ -298,41 +156,73 @@ export default function ChatWindow({
     setIsCallMinimized(!isCallMinimized);
   };
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !activeChat) return;
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !activeChat || !currentUser) return;
     
-    const newMsg: Message = {
-      sender: "You",
-      text: newMessage.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isYou: true,
-      type: 'text'
-    };
+    // Determine receiver ID based on activeChat structure
+    const receiverId = activeChat.other_user?.id || activeChat.receiverId || activeChat.id;
+    const chatId = activeChat.id || activeChat.chat_id;
     
-    setMessages([...messages, newMsg]);
+    if (!receiverId) {
+      console.error("Receiver ID not found in active chat");
+      return;
+    }
+    
+    const messageText = newMessage.trim();
     setNewMessage("");
     setShowEmojiPicker(false);
-    
-    if (Math.random() > 0.3) {
-      setTimeout(() => {
-        const replies = [
-          "That's interesting!",
-          "I'll get back to you on that",
-          "Thanks for letting me know",
-          "Can we discuss this later?",
-          "I agree with you",
-        ];
-        const randomReply = replies[Math.floor(Math.random() * replies.length)];
+
+    try {
+      // Try Socket.IO first
+      if (chatService.isConnected()) {
+        const response = await chatService.sendMessage({
+          senderId: currentUser.id,
+          receiverId: receiverId,
+          message: messageText,
+          messageType: "text",
+          chatId: chatId
+        });
+
+        if (response && response.success) {
+          const msg = response.message;
+          const newMsg: Message = {
+            sender: "You",
+            text: msg.message,
+            time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isYou: true,
+            type: 'text'
+          };
+          setMessages(prev => [...prev, newMsg]);
+        }
+      } else {
+        console.warn("Socket not connected, attempting to reconnect...");
+        // Fallback: Try to reconnect and resend
+        await chatService.connect(currentUser.id);
         
-        const replyMsg: Message = {
-          sender: chats.find(chat => chat.id === activeChat)?.name || "Contact",
-          text: randomReply,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: 'text'
-        };
-        
-        setMessages(prev => [...prev, replyMsg]);
-      }, 1000 + Math.random() * 2000);
+        const response = await chatService.sendMessage({
+          senderId: currentUser.id,
+          receiverId: receiverId,
+          message: messageText,
+          messageType: "text",
+          chatId: chatId
+        });
+
+        if (response && response.success) {
+          const msg = response.message;
+          const newMsg: Message = {
+            sender: "You",
+            text: msg.message,
+            time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isYou: true,
+            type: 'text'
+          };
+          setMessages(prev => [...prev, newMsg]);
+        }
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Restore message text so user can retry
+      setNewMessage(messageText);
     }
   };
 
@@ -436,16 +326,6 @@ export default function ChatWindow({
       setAudioUrl(null);
       setAudioChunks([]);
       setIsSendingRecording(false);
-      
-      setTimeout(() => {
-        const replyMsg: Message = {
-          sender: chats.find(chat => chat.id === activeChat)?.name || "Contact",
-          text: "Thanks for the voice message!",
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: 'text'
-        };
-        setMessages(prev => [...prev, replyMsg]);
-      }, 2000);
     }, 1000);
   };
 
@@ -549,13 +429,13 @@ export default function ChatWindow({
                 </button>
               )}
               <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-                {getInitials(chats.find(chat => chat.id === activeChat)?.name || "C")}
+                {getInitials(currentChat?.name || "C")}
               </div>
               <div 
                 className="font-semibold cursor-pointer"
                 onClick={() => handleNameClick(activeChat)}
               >
-                {chats.find(chat => chat.id === activeChat)?.name || "Chat"}
+                {currentChat?.name || "Chat"}
               </div>
             </div>
             {!isRequest && (
@@ -755,16 +635,7 @@ export default function ChatWindow({
             </div>
           )}
 
-          {/*
-            <CallScreen
-              contactName={chats.find(chat => chat.id === activeChat)?.name || "Contact"}
-              contactInitials={getInitials(chats.find(chat => chat.id === activeChat)?.name || "C")}
-              isVideoCall={isVideoCall}
-              onEndCall={handleEndCall}
-              onToggleVideo={handleToggleVideo}
-              onMinimize={handleToggleMinimize}
-            />
-          */}
+       
 
         </>
       ) : (

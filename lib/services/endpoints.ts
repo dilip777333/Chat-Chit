@@ -9,11 +9,11 @@ const getSocketURL = () => {
     const hostname = window.location.hostname;
     // If hostname is not localhost, use the same hostname for backend
     if (hostname !== "localhost" && hostname !== "127.0.0.1") {
-      return `http://${hostname}:5000`;
+      return `http://${hostname}:5001`;
     }
   }
   
-  return "http://localhost:5000";
+  return "http://localhost:5001";
 };
 
 const endpoints = {
@@ -34,6 +34,8 @@ const endpoints = {
     getChatList: "/v1/api/chat/list",
     getAllUsers: "/v1/api/chat/users",
     searchUsers: "/v1/api/chat/search", // Search users endpoint
+    accessChat: "/v1/api/chat/access",
+    getMessagesByChatId: (chatId: string | number) => `/v1/api/chat/messages/${chatId}`,
 
     // Socket.IO connection - automatically uses network IP if accessing via network
     socketUrl: getSocketURL(),

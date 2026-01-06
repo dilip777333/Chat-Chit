@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MessageSquare, Mail, Phone, ArrowLeft, Check, User, Camera, Upload, ChevronLeft, ChevronRight, Shield, Users, Zap, ArrowUpDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { authService } from "@/lib/services/authService";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,16 +11,11 @@ export default function LoginPage() {
   const [loginMethod, setLoginMethod] = useState<"phone" | "email">("phone");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [username, setUsername] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [showOtpInput, setShowOtpInput] = useState(false);
-  const [showRegistration, setShowRegistration] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isExistingUser, setIsExistingUser] = useState(false);
-  const [userType, setUserType] = useState<"new" | "existing">("new");
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSwapped, setIsSwapped] = useState(false);
 
   const handleSendOtp = async () => {
@@ -28,14 +24,32 @@ export default function LoginPage() {
     
     if (isValid) {
       setIsLoading(true);
-      // Set user type based on selection
-      setIsExistingUser(userType === "existing");
+      setError(null);
+      setSuccessMessage(null);
       
-      // Simulate API call
-      setTimeout(() => {
-        setShowOtpInput(true);
+      try {
+        const requestData = loginMethod === "phone" 
+          ? { phone: phoneNumber }
+          : { email: email };
+        
+        const response = await authService.sendOtp(requestData);
+        
+        if (response.success) {
+          setSuccessMessage(response.message);
+          if (response.otp) {
+            setSuccessMessage(prev => prev + ` (Development OTP: ${response.otp})`);
+          }
+          setShowOtpInput(true);
+        } else {
+          setError(response.message);
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to send OTP. Please try again.");
+      } finally {
         setIsLoading(false);
-      }, 1000);
+      }
+    } else {
+      setError("Please enter a valid phone number or email");
     }
   };
 
@@ -58,29 +72,38 @@ export default function LoginPage() {
     }
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     const otpValue = otp.join("");
     if (otpValue.length === 6) {
       setIsLoading(true);
-      // Simulate OTP verification - accept any 6-digit code for now
-      setTimeout(() => {
-        if (isExistingUser) {
-          // Existing user - direct to chat
-          login(); // Set authentication state
-          router.push("/chat");
-        } else {
-          // New user - show registration form
-          setShowOtpInput(false);
-          setShowRegistration(true);
-          // Pre-fill contact info
-          if (loginMethod === "phone") {
-            setPhoneNumber(phoneNumber);
+      setError(null);
+      
+      try {
+        const requestData = loginMethod === "phone" 
+          ? { phone: phoneNumber, otp: otpValue }
+          : { email: email, otp: otpValue };
+        
+        const response = await authService.verifyOtp(requestData);
+        
+        if (response.success && response.token && response.user) {
+          login(response.user, response.token);
+          
+          // Check if user is new and redirect accordingly
+          if (response.isNewUser) {
+            router.push("/details");
           } else {
-            setEmail(email);
+            router.push("/chat");
           }
+        } else {
+          setError(response.message || "Invalid OTP");
         }
+      } catch (err: any) {
+        setError(err.message || "Failed to verify OTP. Please try again.");
+      } finally {
         setIsLoading(false);
-      }, 1000);
+      }
+    } else {
+      setError("Please enter a valid 6-digit OTP");
     }
   };
 
@@ -91,46 +114,11 @@ export default function LoginPage() {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setProfileImage(event.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleRegistration = async () => {
-    const isValid = firstName.trim() && lastName.trim() && username.trim() && 
-                   ((loginMethod === "phone" && phoneNumber.length >= 10) || 
-                    (loginMethod === "email" && email.includes("@")));
-    
-    if (isValid) {
-      setIsLoading(true);
-      // Simulate registration API call
-      setTimeout(() => {
-        login(); // Set authentication state
-        router.push("/chat");
-      }, 1000);
-    }
-  };
-
-  const handleProfileUpdate = async () => {
-    setIsLoading(true);
-    // Simulate profile update API call
-    setTimeout(() => {
-      setIsLoading(false);
-      setShowRegistration(false);
-    }, 1000);
-  };
-
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Background Image */}
       <div className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700" 
-           style={{ backgroundImage: showRegistration ? "url('/images/form.jpg')" : "url('/images/main-bg.jpg')" }}>
+           style={{ backgroundImage: "url('/images/main-bg.jpg')" }}>
       </div>
 
       {/* Main Content */}
@@ -149,8 +137,20 @@ export default function LoginPage() {
               <p className="text-gray-200">Connect with friends and family</p>
             </div>
 
-            {/* Login Form - More Visible */}
+            {/* Login Form */}
             <div className="bg-white bg-opacity-90 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-gray-200">
+              {/* Error/Success Messages */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                  {error}
+                </div>
+              )}
+              {successMessage && (
+                <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+                  {successMessage}
+                </div>
+              )}
+
               {/* Login Method Toggle */}
               <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
                 <button
@@ -174,32 +174,6 @@ export default function LoginPage() {
                 >
                   <Mail size={18} />
                   <span className="text-sm font-semibold">Email</span>
-                </button>
-              </div>
-
-              {/* User Type Selection */}
-              <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
-                <button
-                  onClick={() => setUserType("new")}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-md transition-all ${
-                    userType === "new"
-                      ? "bg-white shadow-sm text-green-600"
-                      : "text-gray-600 hover:text-gray-800"
-                  }`}
-                >
-                  <User size={18} />
-                  <span className="text-sm font-semibold">Register as New</span>
-                </button>
-                <button
-                  onClick={() => setUserType("existing")}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-md transition-all ${
-                    userType === "existing"
-                      ? "bg-white shadow-sm text-blue-600"
-                      : "text-gray-600 hover:text-gray-800"
-                  }`}
-                >
-                  <Check size={18} />
-                  <span className="text-sm font-semibold">Existing User</span>
                 </button>
               </div>
 
@@ -295,155 +269,6 @@ export default function LoginPage() {
         </button>
       </div>
 
-      {/* Registration Form Overlay */}
-      {showRegistration && (
-        <div className="fixed inset-0 bg-cover bg-center bg-no-repeat flex items-center justify-center z-50 p-4" 
-             style={{ backgroundImage: "url('/images/form.jpg')" }}>
-          <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto border border-gray-200">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Complete Your Profile</h2>
-              <button
-                onClick={() => {
-                  setShowRegistration(false);
-                  setShowOtpInput(false);
-                  setOtp(["", "", "", "", "", ""]);
-                }}
-                className="text-gray-600 hover:text-gray-800"
-              >
-                <ArrowLeft size={20} />
-              </button>
-            </div>
-            <p className="text-gray-600 mb-6">
-              Welcome! Please complete your profile to continue
-            </p>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Enter your first name"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Enter your last name"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Username
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Choose a username"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Profile Picture
-              </label>
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-2 border-gray-300">
-                  {profileImage ? (
-                    <img
-                      src={profileImage}
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Camera className="text-gray-400 w-8 h-8" />
-                  )}
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  id="profile-upload"
-                />
-                <button
-                  onClick={() => document.getElementById('profile-upload')?.click()}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <Upload size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Contact Info (Pre-filled) */}
-            <div className="space-y-4">
-              {loginMethod === "phone" ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Phone className="text-gray-400 w-5 h-5" />
-                    </div>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                      placeholder="Enter your phone number"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      maxLength={10}
-                      disabled
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Mail className="text-gray-400 w-5 h-5" />
-                    </div>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      disabled
-                    />
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={handleRegistration}
-                disabled={isLoading || !firstName.trim() || !lastName.trim() || !username.trim()}
-                className="w-full bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? "Creating Account..." : "Save & Continue"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* OTP Input Modal */}
       {showOtpInput && (
         <div className="fixed inset-0 bg-cover bg-center bg-no-repeat flex items-center justify-center sm:justify-start z-50 p-4" 
@@ -460,15 +285,14 @@ export default function LoginPage() {
               <p className="text-gray-600 mt-2">
                 We've sent a 6-digit code to {loginMethod === "phone" ? phoneNumber : email}
               </p>
-              {userType === "existing" && (
-                <p className="text-green-600 text-sm mt-2">Existing user login selected!</p>
-              )}
-              {userType === "new" && (
-                <p className="text-blue-600 text-sm mt-2">New user registration selected!</p>
-              )}
             </div>
 
-            {/* OTP Digits */}
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                {error}
+              </div>
+            )}
             <div className="space-y-6">
               <div className="flex justify-center gap-2">
                 {otp.map((digit, index) => (
@@ -494,8 +318,8 @@ export default function LoginPage() {
                   "Verifying..."
                 ) : (
                   <>
-                    <Check size={20} />
-                    {userType === "existing" ? "Verify & Login" : "Verify & Continue"}
+                    <ArrowLeft size={20} />
+                    Verify & Login
                   </>
                 )}
               </button>

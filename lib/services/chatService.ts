@@ -131,6 +131,33 @@ class ChatService {
     });
   }
 
+  // Access or create a chat
+  async accessChat(userId: number): Promise<any> {
+    try {
+      const response = await request.post<{ success: boolean; chat: any }>(endpoints.chat.accessChat, { userId });
+      return response.chat;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get messages by chat ID
+  async getMessagesByChatId(
+    chatId: number, 
+    limit: number = 50, 
+    offset: number = 0
+  ): Promise<ChatHistoryResponse> {
+    try {
+      const response = await request.get<ChatHistoryResponse>(
+        endpoints.chat.getMessagesByChatId(chatId),
+        { limit, offset }
+      );
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // Get chat history via API
   async getChatHistory(
     userId1: number, 
@@ -152,9 +179,43 @@ class ChatService {
   // Search users by name, email, or phone
   async searchUsers(query: string): Promise<any[]> {
     try {
-      const response = await request.get<{success: boolean, users: any[]}>(endpoints.chat.searchUsers, { q: query });
-      return response.users || [];
+      const response = await request.get<any>(endpoints.chat.searchUsers, { q: query });
+
+      // Response shape may vary; normalize it.
+      if (response && Array.isArray(response.users)) {
+        return response.users;
+      }
+
+      // Some backends may return users directly or nested differently.
+      if (response && Array.isArray(response)) {
+        return response;
+      }
+
+      if (response && response.data && Array.isArray(response.data.users)) {
+        return response.data.users;
+      }
+
+      // Fallback: fetch all users and do a client-side filter if search endpoint didn't return users
+      try {
+        const all = await request.get<any>(endpoints.chat.getAllUsers);
+        const users = Array.isArray(all.users) ? all.users : (Array.isArray(all) ? all : []);
+        const qLower = (query || "").toLowerCase();
+        return users.filter((u: any) => {
+          return (
+            (u.user_name && u.user_name.toLowerCase().includes(qLower)) ||
+            (u.first_name && u.first_name.toLowerCase().includes(qLower)) ||
+            (u.last_name && u.last_name.toLowerCase().includes(qLower)) ||
+            (u.email && u.email.toLowerCase().includes(qLower)) ||
+            (u.phone_number && u.phone_number.toLowerCase().includes(qLower))
+          );
+        }).slice(0, 20);
+      } catch (innerErr) {
+        console.error("Failed to fallback to getAllUsers:", innerErr);
+      }
+
+      return [];
     } catch (error) {
+      console.error("searchUsers error:", error);
       throw error;
     }
   }
