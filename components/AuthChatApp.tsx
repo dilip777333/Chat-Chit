@@ -37,7 +37,9 @@ export default function AuthChatApp() {
 
     const handleSelectChat = async (userId: number) => {
     try {
+      console.log("🔵 Selecting chat with user:", userId);
       const chat = await chatService.accessChat(userId);
+      console.log("✅ Chat object received:", chat);
       setActiveChat(chat);
 
       // Use the other user's ID for the chat list for consistency with getChatList
@@ -60,7 +62,7 @@ export default function AuthChatApp() {
         setChats(prevChats => [newChat, ...prevChats]);
       }
     } catch (error) {
-      console.error('Error accessing chat:', error);
+      console.error('❌ Error accessing chat:', error);
     }
   };
 

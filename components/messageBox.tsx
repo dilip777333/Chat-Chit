@@ -70,17 +70,36 @@ export default function ChatWindow({
 
   useEffect(() => {
     const fetchMessages = async () => {
-      if (activeChat && activeChat.id && currentUser) {
+      if (activeChat && currentUser) {
         try {
-          const history = await chatService.getMessagesByChatId(activeChat.id);
-          const transformedMessages = history.messages.map((msg: any) => ({
-            sender: msg.sender_id === currentUser.id ? "You" : currentChat?.name || "",
-            text: msg.message_text,
-            time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isYou: msg.sender_id === currentUser.id,
-            type: msg.message_type as 'text' | 'image' | 'document' | 'location' | 'audio',
-          }));
-          setMessages(transformedMessages);
+          // Get the other user's ID
+          const otherUserId = activeChat.other_user?.id || activeChat.receiverId || activeChat.id;
+          
+          if (!otherUserId) {
+            setMessages([]);
+            return;
+          }
+
+          console.log("Fetching chat history between userId:", currentUser.id, "and", otherUserId);
+          
+          // Use getChatHistory - passes both user IDs
+          const history = await chatService.getChatHistory(currentUser.id, otherUserId, 100, 0);
+          
+          if (history && history.messages) {
+            const transformedMessages = history.messages
+              .reverse() // Reverse because backend returns DESC order (newest first)
+              .map((msg: any) => ({
+                sender: msg.sender_id === currentUser.id ? "You" : currentChat?.name || "Other",
+                text: msg.message_text,
+                time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                isYou: msg.sender_id === currentUser.id,
+                type: msg.message_type as 'text' | 'image' | 'document' | 'location' | 'audio',
+              }));
+            console.log("Messages fetched:", transformedMessages.length);
+            setMessages(transformedMessages);
+          } else {
+            setMessages([]);
+          }
         } catch (error) {
           console.error('Error fetching chat history:', error);
           setMessages([]);
@@ -89,12 +108,13 @@ export default function ChatWindow({
     };
 
     fetchMessages();
-  }, [activeChat, currentUser, currentChat?.name]);
+  }, [activeChat, currentUser]);
 
   useEffect(() => {
     const handleReceiveMessage = (msg: any) => {
       // Only add message if it belongs to the active chat
-      if (activeChat && msg.chatId === activeChat.id) {
+      // AND it's not a message we just sent (to avoid duplicates)
+      if (activeChat && msg.chatId === activeChat.id && msg.senderId !== currentUser?.id) {
         const newMsg: Message = {
           sender: currentChat?.name || "Other",
           text: msg.message,
@@ -106,16 +126,27 @@ export default function ChatWindow({
       }
     };
 
+    const handleMessageSent = (msg: any) => {
+      // Add our sent messages to the chat (from message_sent event)
+      if (activeChat && msg.chatId === activeChat.id && msg.senderId === currentUser?.id) {
+        const newMsg: Message = {
+          sender: "You",
+          text: msg.message,
+          time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isYou: true,
+          type: msg.messageType as any || 'text',
+        };
+        setMessages(prev => [...prev, newMsg]);
+      }
+    };
+
     chatService.onReceiveMessage(handleReceiveMessage);
+    chatService.onMessageSent(handleMessageSent);
 
     return () => {
-      // We don't have a way to remove just one listener easily with the current chatService
-      // but we could implement it if needed. For now removeAllListeners might be too broad
-      // if multiple components use it, but here it's likely fine.
-      // Better: update chatService to allow removing specific listeners or just leave it for now
-      // as it's a singleton.
+      // Cleanup listeners
     };
-  }, [activeChat, currentChat?.name]);
+  }, [activeChat, currentChat?.name, currentUser?.id]);
 
   useEffect(() => {
     scrollToBottom();
@@ -175,49 +206,28 @@ export default function ChatWindow({
     try {
       // Try Socket.IO first
       if (chatService.isConnected()) {
-        const response = await chatService.sendMessage({
+        await chatService.sendMessage({
           senderId: currentUser.id,
           receiverId: receiverId,
           message: messageText,
           messageType: "text",
           chatId: chatId
         });
-
-        if (response && response.success) {
-          const msg = response.message;
-          const newMsg: Message = {
-            sender: "You",
-            text: msg.message,
-            time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isYou: true,
-            type: 'text'
-          };
-          setMessages(prev => [...prev, newMsg]);
-        }
+        // Don't add message to state here - let the socket listener handle it
+        // This prevents duplicate messages
       } else {
         console.warn("Socket not connected, attempting to reconnect...");
         // Fallback: Try to reconnect and resend
         await chatService.connect(currentUser.id);
         
-        const response = await chatService.sendMessage({
+        await chatService.sendMessage({
           senderId: currentUser.id,
           receiverId: receiverId,
           message: messageText,
           messageType: "text",
           chatId: chatId
         });
-
-        if (response && response.success) {
-          const msg = response.message;
-          const newMsg: Message = {
-            sender: "You",
-            text: msg.message,
-            time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isYou: true,
-            type: 'text'
-          };
-          setMessages(prev => [...prev, newMsg]);
-        }
+        // Don't add message to state here
       }
     } catch (error) {
       console.error('Error sending message:', error);
