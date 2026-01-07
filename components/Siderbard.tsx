@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function Sidebar({ onProfileClick }: { onProfileClick: () => void }) {
   const [showProfile, setShowProfile] = useState(false);
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, currentUser, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -27,9 +27,17 @@ export default function Sidebar({ onProfileClick }: { onProfileClick: () => void
         <div className="mt-8 flex flex-col gap-4">
           <button
             onClick={onProfileClick}
-            className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors border border-white/30"
+            className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors border border-white/30 overflow-hidden"
           >
-            <User className="text-white w-5 h-5" />
+            {currentUser?.profile_picture ? (
+              <img
+                src={currentUser.profile_picture}
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User className="text-white w-5 h-5" />
+            )}
           </button>
           
           {/* Logout Button */}

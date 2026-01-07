@@ -28,6 +28,7 @@ const API = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true, // Include cookies in all requests
 });
 
 API.interceptors.request.use(

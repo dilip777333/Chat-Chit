@@ -46,6 +46,7 @@ const endpoints = {
   admin: {
     users: "/v1/api/users",
     userById: (id: string | number) => `/v1/api/users/${id}`,
+    profile: "/v1/api/users/profile",
     dashboardStats: "/v1/api/admin/dashboard/stats",
     settings: "/v1/api/admin/settings",
   },

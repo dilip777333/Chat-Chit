@@ -104,5 +104,78 @@ export const authService = {
       console.error('Update user details error:', error);
       throw error;
     }
+  },
+
+  async getProfile(token?: string): Promise<AuthResponse> {
+    try {
+      // Get token from parameter or localStorage
+      const authToken = token || localStorage.getItem('token');
+      
+      const headers: any = {
+        'Content-Type': 'application/json',
+      };
+
+      // Add Authorization header if token is available
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/users/profile`, {
+        method: 'GET',
+        headers,
+        credentials: 'include', // Include cookies in request
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to fetch profile');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Get profile error:', error);
+      throw error;
+    }
+  },
+
+  async updateProfile(token: string, data: any): Promise<AuthResponse> {
+    try {
+      // Get token from parameter or localStorage
+      const authToken = token || localStorage.getItem('token');
+      
+      console.log('📤 updateProfile called with token:', token ? 'passed' : 'not passed');
+      console.log('📤 authToken from localStorage:', authToken ? authToken.substring(0, 20) + '...' : 'NOT FOUND');
+      
+      const headers: any = {
+        'Content-Type': 'application/json',
+      };
+
+      // Add Authorization header if token is available
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+        console.log('📤 Authorization header added');
+      } else {
+        console.log('⚠️  NO TOKEN - Authorization header NOT added');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/users/profile`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(data),
+        credentials: 'include', // Include cookies in request
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to update profile');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Update profile error:', error);
+      throw error;
+    }
   }
 };
