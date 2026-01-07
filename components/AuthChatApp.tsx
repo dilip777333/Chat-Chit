@@ -92,11 +92,14 @@ export default function AuthChatApp() {
           await chatService.connect(currentUser.id);
           console.log("✓ Socket connected successfully");
           
-          const response = await chatService.getChatList();
-          const chatListData = Array.isArray(response) ? response : (response?.chatList || []);
+          // Use the new getChattedUsers API instead of getChatList
+          console.log("📞 Calling getChattedUsers with userId:", currentUser.id);
+          const chattedUsers = await chatService.getChattedUsers(currentUser.id);
+          console.log("📥 getChattedUsers response:", chattedUsers);
           
-          if (Array.isArray(chatListData)) {
-            const transformedChats: Chat[] = chatListData.map((chatUser: any) => ({
+          if (Array.isArray(chattedUsers) && chattedUsers.length > 0) {
+            console.log("✅ Found", chattedUsers.length, "chatted users");
+            const transformedChats: Chat[] = chattedUsers.map((chatUser: any) => ({
               id: chatUser.id,
               type: "personal",
               name: chatUser.first_name && chatUser.last_name 
@@ -114,10 +117,14 @@ export default function AuthChatApp() {
               is_last_message_from_me: chatUser.is_last_message_from_me,
               message_status: chatUser.message_status
             }));
+            console.log("✅ Transformed chats:", transformedChats);
             setChats(transformedChats);
+          } else {
+            console.log("⚠️ No chatted users found or response is not an array");
+            setChats([]);
           }
         } catch (error) {
-          console.error('Error connecting or fetching chat list:', error);
+          console.error('❌ Error connecting or fetching chatted users:', error);
         }
       }
     };

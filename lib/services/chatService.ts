@@ -230,6 +230,39 @@ class ChatService {
     }
   }
 
+  // Get chatted users list (users current user has chatted with)
+  async getChattedUsers(userId: number): Promise<any[]> {
+    try {
+      const response = await request.get<any>(endpoints.chat.getChattedUsers(userId));
+      if (response && Array.isArray(response.chattedUsers)) {
+        return response.chattedUsers;
+      }
+      return [];
+    } catch (error) {
+      console.error("Error fetching chatted users:", error);
+      throw error;
+    }
+  }
+
+  // Get old chat messages between two users
+  async getOldChat(
+    userId1: number,
+    userId2: number,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<ChatHistoryResponse> {
+    try {
+      const response = await request.get<ChatHistoryResponse>(
+        endpoints.chat.getOldChat(userId1, userId2),
+        { limit, offset }
+      );
+      return response;
+    } catch (error) {
+      console.error("Error fetching old chat:", error);
+      throw error;
+    }
+  }
+
   // Mark messages as read
   async markAsRead(chatId: number, userId: number): Promise<void> {
     try {

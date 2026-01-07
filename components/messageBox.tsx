@@ -80,14 +80,13 @@ export default function ChatWindow({
             return;
           }
 
-          console.log("Fetching chat history between userId:", currentUser.id, "and", otherUserId);
+          console.log("Fetching old chat between userId:", currentUser.id, "and", otherUserId);
           
-          // Use getChatHistory - passes both user IDs
-          const history = await chatService.getChatHistory(currentUser.id, otherUserId, 100, 0);
+          // Use getOldChat API - NEW API for fetching messages
+          const history = await chatService.getOldChat(currentUser.id, otherUserId, 100, 0);
           
           if (history && history.messages) {
             const transformedMessages = history.messages
-              .reverse() // Reverse because backend returns DESC order (newest first)
               .map((msg: any) => ({
                 sender: msg.sender_id === currentUser.id ? "You" : currentChat?.name || "Other",
                 text: msg.message_text,
@@ -95,14 +94,32 @@ export default function ChatWindow({
                 isYou: msg.sender_id === currentUser.id,
                 type: msg.message_type as 'text' | 'image' | 'document' | 'location' | 'audio',
               }));
-            console.log("Messages fetched:", transformedMessages.length);
+            console.log("✅ Old messages fetched:", transformedMessages.length);
             setMessages(transformedMessages);
           } else {
             setMessages([]);
           }
         } catch (error) {
           console.error('Error fetching chat history:', error);
-          setMessages([]);
+          // Fallback to getChatHistory API if getOldChat fails
+          try {
+            const fallbackHistory = await chatService.getChatHistory(currentUser.id, activeChat.other_user?.id || activeChat.id, 100, 0);
+            if (fallbackHistory && fallbackHistory.messages) {
+              const transformedMessages = fallbackHistory.messages
+                .reverse()
+                .map((msg: any) => ({
+                  sender: msg.sender_id === currentUser.id ? "You" : currentChat?.name || "Other",
+                  text: msg.message_text,
+                  time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  isYou: msg.sender_id === currentUser.id,
+                  type: msg.message_type as 'text' | 'image' | 'document' | 'location' | 'audio',
+                }));
+              setMessages(transformedMessages);
+            }
+          } catch (fallbackError) {
+            console.error('Fallback error:', fallbackError);
+            setMessages([]);
+          }
         }
       }
     };

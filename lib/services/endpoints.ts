@@ -36,6 +36,8 @@ const endpoints = {
     searchUsers: "/v1/api/chat/search", // Search users endpoint
     accessChat: "/v1/api/chat/access",
     getMessagesByChatId: (chatId: string | number) => `/v1/api/chat/messages/${chatId}`,
+    getChattedUsers: (userId: string | number) => `/v1/api/chat/chatted-users/${userId}`,
+    getOldChat: (userId1: string | number, userId2: string | number) => `/v1/api/chat/old/${userId1}/${userId2}`,
 
     // Socket.IO connection - automatically uses network IP if accessing via network
     socketUrl: getSocketURL(),
