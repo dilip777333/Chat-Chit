@@ -8,12 +8,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { chatService } from "@/lib/services/chatService";
 
 type Message = {
+  id?: number;
   sender: string;
   text: string;
   time: string;
   isYou?: boolean;
   type?: 'text' | 'image' | 'document' | 'location' | 'audio';
   content?: string;
+  status?: 'sent' | 'delivered' | 'read'; // WhatsApp-style status
+  isRead?: boolean;
 };
 
 type Chat = {
@@ -88,14 +91,23 @@ export default function ChatWindow({
           if (history && history.messages) {
             const transformedMessages = history.messages
               .map((msg: any) => ({
+                id: msg.id,
                 sender: msg.sender_id === currentUser.id ? "You" : currentChat?.name || "Other",
                 text: msg.message_text,
                 time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 isYou: msg.sender_id === currentUser.id,
                 type: msg.message_type as 'text' | 'image' | 'document' | 'location' | 'audio',
+                isRead: msg.is_read,
+                status: msg.is_read ? 'read' : 'delivered' // Default status based on is_read
               }));
             console.log("✅ Old messages fetched:", transformedMessages.length);
             setMessages(transformedMessages);
+            
+            // Mark all unread messages from other user as read
+            if (chatService.isConnected()) {
+              console.log("📬 Marking all messages as read...");
+              chatService.markAllRead(currentUser.id, otherUserId);
+            }
           } else {
             setMessages([]);
           }
@@ -108,11 +120,14 @@ export default function ChatWindow({
               const transformedMessages = fallbackHistory.messages
                 .reverse()
                 .map((msg: any) => ({
+                  id: msg.id,
                   sender: msg.sender_id === currentUser.id ? "You" : currentChat?.name || "Other",
                   text: msg.message_text,
                   time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                   isYou: msg.sender_id === currentUser.id,
                   type: msg.message_type as 'text' | 'image' | 'document' | 'location' | 'audio',
+                  isRead: msg.is_read,
+                  status: msg.is_read ? 'read' : 'delivered'
                 }));
               setMessages(transformedMessages);
             }
@@ -133,11 +148,14 @@ export default function ChatWindow({
       // AND it's not a message we just sent (to avoid duplicates)
       if (activeChat && msg.chatId === activeChat.id && msg.senderId !== currentUser?.id) {
         const newMsg: Message = {
+          id: msg.id,
           sender: currentChat?.name || "Other",
           text: msg.message,
           time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           isYou: false,
           type: msg.messageType as any || 'text',
+          status: 'delivered',
+          isRead: false,
         };
         setMessages(prev => [...prev, newMsg]);
       }
@@ -147,18 +165,40 @@ export default function ChatWindow({
       // Add our sent messages to the chat (from message_sent event)
       if (activeChat && msg.chatId === activeChat.id && msg.senderId === currentUser?.id) {
         const newMsg: Message = {
+          id: msg.id,
           sender: "You",
           text: msg.message,
           time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           isYou: true,
           type: msg.messageType as any || 'text',
+          status: 'delivered',
+          isRead: false,
         };
         setMessages(prev => [...prev, newMsg]);
       }
     };
 
+    const handleMessageRead = (data: any) => {
+      // Update message status to read when sender receives this event
+      const { messageId } = data;
+      setMessages(prev => prev.map(msg => 
+        msg.id === messageId ? { ...msg, status: 'read', isRead: true } : msg
+      ));
+    };
+
+    const handleMessagesRead = (data: any) => {
+      // Multiple messages marked as read
+      const { count } = data;
+      setMessages(prev => prev.map(msg => 
+        msg.isYou ? { ...msg, status: 'read', isRead: true } : msg
+      ));
+      console.log(`✅ ${count} messages marked as read`);
+    };
+
     chatService.onReceiveMessage(handleReceiveMessage);
     chatService.onMessageSent(handleMessageSent);
+    chatService.onMessageRead?.(handleMessageRead);
+    chatService.onMessagesRead?.(handleMessagesRead);
 
     return () => {
       // Cleanup listeners
@@ -455,8 +495,16 @@ export default function ChatWindow({
                   <Menu size={20} />
                 </button>
               )}
-              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-                {getInitials(currentChat?.name || "C")}
+              <div className="w-10 h-10 rounded-full bg-gradient-to-b from-purple-500 via-pink-500 to-blue-500 flex items-center justify-center text-white font-semibold overflow-hidden">
+                {currentChat?.avatar ? (
+                  <img 
+                    src={currentChat.avatar}
+                    alt={currentChat.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  getInitials(currentChat?.name || "C")
+                )}
               </div>
               <div 
                 className="font-semibold cursor-pointer"
@@ -507,8 +555,14 @@ export default function ChatWindow({
                   >
                     {renderMessageContent(msg)}
                   </div>
-                  <div className={`text-xs text-gray-500 mt-1 ${msg.isYou ? 'text-right' : 'text-left'}`}>
-                    {msg.time}
+                  <div className={`text-xs text-gray-500 mt-1 flex items-center gap-1 ${msg.isYou ? 'justify-end' : 'justify-start'}`}>
+                    <span>{msg.time}</span>
+                    {msg.isYou && (
+                      <span className={`flex gap-0.5 ${msg.status === 'read' ? 'text-blue-500' : 'text-gray-400'}`}>
+                        <span>✓</span>
+                        <span>✓</span>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

@@ -214,7 +214,7 @@ export default function ChatListPanel({
   }
 
   return (
-    <div className={`${isMobile ? 'w-full' : 'w-75'} border-r border-gray-200 h-screen bg-white flex flex-col`}>
+    <div className={`${isMobile ? 'w-full' : 'w-75'} border-r border-gray-200 h-screen bg-gradient-to-b from-pink-50 to-white flex flex-col`}>
       <style jsx>{`
         .thin-scrollbar::-webkit-scrollbar {
           width: 4px;
@@ -228,8 +228,8 @@ export default function ChatListPanel({
         }
       `}</style>
 
-      <div className="p-4 border-b border-gray-200">
-        <div className="text-lg font-semibold flex justify-between items-center">
+      <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-500 via-pink-500 to-pink-400">
+        <div className="text-lg font-semibold flex justify-between items-center text-white">
           Messages
           
         </div>
@@ -237,7 +237,7 @@ export default function ChatListPanel({
           <input
             type="text"
             placeholder="Search..."
-            className="w-full py-2 pl-10 pr-4 rounded-lg border border-gray-300 focus:outline-none"
+            className="w-full py-2 pl-10 pr-4 rounded-lg border border-gray-300 focus:outline-none bg-white text-gray-800"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />

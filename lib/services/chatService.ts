@@ -263,6 +263,20 @@ class ChatService {
     }
   }
 
+  // Mark single message as read
+  markMessageRead(messageId: number, userId: number): void {
+    if (this.socket) {
+      this.socket.emit("mark_message_read", { messageId, userId });
+    }
+  }
+
+  // Mark all messages from a user as read
+  markAllRead(userId: number, otherUserId: number): void {
+    if (this.socket) {
+      this.socket.emit("mark_all_read", { userId, otherUserId });
+    }
+  }
+
   // Mark messages as read
   async markAsRead(chatId: number, userId: number): Promise<void> {
     try {
@@ -282,6 +296,18 @@ class ChatService {
   onMessageSent(callback: (message: Message) => void): void {
     if (this.socket) {
       this.socket.on("message_sent", callback);
+    }
+  }
+
+  onMessageRead(callback: (data: { messageId: number; readBy: number; readAt: string }) => void): void {
+    if (this.socket) {
+      this.socket.on("message_read", callback);
+    }
+  }
+
+  onMessagesRead(callback: (data: { readBy: number; count: number }) => void): void {
+    if (this.socket) {
+      this.socket.on("messages_read", callback);
     }
   }
 
