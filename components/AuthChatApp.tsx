@@ -45,6 +45,15 @@ export default function AuthChatApp() {
       // Use the other user's ID for the chat list for consistency with getChatList
       const otherUserId = chat.other_user.id;
 
+      // Clear unread status for this chat when opening it
+      setChats(prevChats =>
+        prevChats.map(c =>
+          c.id === otherUserId
+            ? { ...c, unread: false, unread_count: 0 }
+            : c
+        )
+      );
+
       // Add to chat list if it's not already there
       if (!chats.some(c => c.id === otherUserId)) {
         const newChat: Chat = {
@@ -58,6 +67,8 @@ export default function AuthChatApp() {
           avatar: chat.other_user.profile_picture || "",
           status: "accepted" as const,
           timestamp: Date.now(),
+          unread: false,
+          unread_count: 0,
         };
         setChats(prevChats => [newChat, ...prevChats]);
       }
@@ -174,6 +185,22 @@ export default function AuthChatApp() {
 
     chatService.onReceiveMessage(handleNewMessage);
     chatService.onMessageSent(handleNewMessage);
+
+    // Listen for messages being marked as read
+    const handleMessagesRead = (data: any) => {
+      if (activeChat && activeChat.other_user) {
+        const otherUserId = activeChat.other_user.id;
+        setChats(prevChats =>
+          prevChats.map(c =>
+            c.id === otherUserId
+              ? { ...c, unread: false, unread_count: 0 }
+              : c
+          )
+        );
+      }
+    };
+
+    chatService.onMessagesRead?.(handleMessagesRead);
 
     return () => {
       // Cleanup if needed

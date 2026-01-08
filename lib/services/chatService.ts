@@ -289,36 +289,48 @@ class ChatService {
   // Socket event listeners
   onReceiveMessage(callback: (message: Message) => void): void {
     if (this.socket) {
+      // Remove old listener if it exists, then add new one
+      this.socket.off("receive_message");
       this.socket.on("receive_message", callback);
     }
   }
 
   onMessageSent(callback: (message: Message) => void): void {
     if (this.socket) {
+      // Remove old listener if it exists, then add new one
+      this.socket.off("message_sent");
       this.socket.on("message_sent", callback);
     }
   }
 
   onMessageRead(callback: (data: { messageId: number; readBy: number; readAt: string }) => void): void {
     if (this.socket) {
+      // Remove old listener if it exists, then add new one
+      this.socket.off("message_read");
       this.socket.on("message_read", callback);
     }
   }
 
   onMessagesRead(callback: (data: { readBy: number; count: number }) => void): void {
     if (this.socket) {
+      // Remove old listener if it exists, then add new one
+      this.socket.off("messages_read");
       this.socket.on("messages_read", callback);
     }
   }
 
   onMessageDeleted(callback: (data: { messageId: number; deletedBy: string }) => void): void {
     if (this.socket) {
+      // Remove old listener if it exists, then add new one
+      this.socket.off("message_deleted");
       this.socket.on("message_deleted", callback);
     }
   }
 
   onUserTyping(callback: (data: { senderId: number; isTyping: boolean }) => void): void {
     if (this.socket) {
+      // Remove old listener if it exists, then add new one
+      this.socket.off("user_typing");
       this.socket.on("user_typing", callback);
     }
   }

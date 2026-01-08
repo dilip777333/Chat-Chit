@@ -147,34 +147,46 @@ export default function ChatWindow({
       // Only add message if it belongs to the active chat
       // AND it's not a message we just sent (to avoid duplicates)
       if (activeChat && msg.chatId === activeChat.id && msg.senderId !== currentUser?.id) {
-        const newMsg: Message = {
-          id: msg.id,
-          sender: currentChat?.name || "Other",
-          text: msg.message,
-          time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isYou: false,
-          type: msg.messageType as any || 'text',
-          status: 'delivered',
-          isRead: false,
-        };
-        setMessages(prev => [...prev, newMsg]);
+        setMessages(prev => {
+          // Check if message already exists to prevent duplicates
+          if (prev.some(m => m.id === msg.id)) {
+            return prev;
+          }
+          const newMsg: Message = {
+            id: msg.id,
+            sender: currentChat?.name || "Other",
+            text: msg.message,
+            time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isYou: false,
+            type: msg.messageType as any || 'text',
+            status: 'delivered',
+            isRead: false,
+          };
+          return [...prev, newMsg];
+        });
       }
     };
 
     const handleMessageSent = (msg: any) => {
       // Add our sent messages to the chat (from message_sent event)
       if (activeChat && msg.chatId === activeChat.id && msg.senderId === currentUser?.id) {
-        const newMsg: Message = {
-          id: msg.id,
-          sender: "You",
-          text: msg.message,
-          time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isYou: true,
-          type: msg.messageType as any || 'text',
-          status: 'delivered',
-          isRead: false,
-        };
-        setMessages(prev => [...prev, newMsg]);
+        setMessages(prev => {
+          // Check if message already exists to prevent duplicates
+          if (prev.some(m => m.id === msg.id)) {
+            return prev;
+          }
+          const newMsg: Message = {
+            id: msg.id,
+            sender: "You",
+            text: msg.message,
+            time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isYou: true,
+            type: msg.messageType as any || 'text',
+            status: 'delivered',
+            isRead: false,
+          };
+          return [...prev, newMsg];
+        });
       }
     };
 
@@ -195,13 +207,17 @@ export default function ChatWindow({
       console.log(`✅ ${count} messages marked as read`);
     };
 
-    chatService.onReceiveMessage(handleReceiveMessage);
-    chatService.onMessageSent(handleMessageSent);
-    chatService.onMessageRead?.(handleMessageRead);
-    chatService.onMessagesRead?.(handleMessagesRead);
+    // Only register listeners if we have an active chat
+    if (activeChat && currentUser) {
+      chatService.onReceiveMessage(handleReceiveMessage);
+      chatService.onMessageSent(handleMessageSent);
+      chatService.onMessageRead?.(handleMessageRead);
+      chatService.onMessagesRead?.(handleMessagesRead);
+    }
 
     return () => {
-      // Cleanup listeners
+      // Note: chatService listeners should be unregistered here if supported
+      // For now, we rely on the checks inside handlers to prevent duplicate processing
     };
   }, [activeChat, currentChat?.name, currentUser?.id]);
 
@@ -482,7 +498,13 @@ export default function ChatWindow({
   };
 
   return (
-    <div className={`flex-1 h-screen bg-gray-50 flex flex-col ${isMobile ? 'fixed inset-0 z-50' : ''}`}>
+   <div
+  className={`flex-1 h-screen flex flex-col ${isMobile ? 'fixed inset-0 z-50' : ''}`}
+  style={{
+    background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)"
+  }}
+>
+
       {activeChat ? (
         <>
           <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white sticky top-0">
@@ -542,15 +564,15 @@ export default function ChatWindow({
               >
                 <div className="max-w-[80%]">
                   {!msg.isYou && (
-                    <div className="text-xs text-gray-600 mb-1">
+                    <div className="text-xs text-gray-400 mb-1">
                       {msg.sender}
                     </div>
                   )}
                   <div
                     className={`p-3 rounded-lg ${
                       msg.isYou
-                        ? "bg-blue-500 text-white rounded-br-none"
-                        : "bg-white shadow rounded-bl-none"
+                        ? "bg-blue-600 text-white rounded-br-none"
+                        : "bg-gray-800 text-gray-100 shadow rounded-bl-none"
                     }`}
                   >
                     {renderMessageContent(msg)}
@@ -570,7 +592,7 @@ export default function ChatWindow({
           </div>
 
           {isRequest ? (
-            <div className="p-4 border-t bg-white sticky bottom-0">
+            <div className="p-4 border-t border-gray-700 sticky bottom-0" style={{background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)"}}>
               <div className="flex justify-center gap-4">
                 <button
                   onClick={handleAcceptRequest}
@@ -587,7 +609,7 @@ export default function ChatWindow({
               </div>
             </div>
           ) : (
-            <div className="p-4 border-t bg-white sticky bottom-0">
+            <div className="p-4 border-t border-gray-700 sticky bottom-0" style={{background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)"}}>
               <input 
                 type="file" 
                 ref={fileInputRef}
@@ -609,19 +631,19 @@ export default function ChatWindow({
               )}
               
               {showAttachmentMenu && (
-                <div className="absolute bottom-16 left-12 bg-white shadow-lg rounded-lg p-2 z-10 w-48">
+                <div className="absolute bottom-16 left-12 bg-gray-900 shadow-lg rounded-lg p-2 z-10 w-48 border border-gray-700">
                   <button 
                     onClick={() => {
                       fileInputRef.current?.click();
                       setShowAttachmentMenu(false);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded text-left"
+                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-800 rounded text-left text-gray-200"
                   >
                     <FileText size={16} /> Send File
                   </button>
                   <button 
                     onClick={handleLocationShare}
-                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded text-left"
+                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-800 rounded text-left text-gray-200"
                   >
                     <MapPin size={16} /> Share Location
                   </button>
@@ -629,10 +651,10 @@ export default function ChatWindow({
               )}
               
               {audioUrl && (
-                <div className="mb-3 p-3 bg-gray-100 rounded-lg flex items-center justify-between">
+                <div className="mb-3 p-3 bg-gray-800 rounded-lg flex items-center justify-between border border-gray-700">
                   <div className="flex items-center gap-3">
                     <audio src={audioUrl} controls className="w-40" />
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-gray-400">
                       {formatRecordingTime(recordingTime)}
                     </span>
                   </div>
@@ -656,7 +678,7 @@ export default function ChatWindow({
               
               <div className="flex items-center gap-2">
                 <button 
-                  className="text-gray-500 hover:text-blue-500 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  className="text-gray-400 hover:text-blue-400 p-2 rounded-full hover:bg-gray-800 transition-colors"
                   onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
                   aria-label="Attachments"
                 >
@@ -664,7 +686,7 @@ export default function ChatWindow({
                 </button>
                 
                 <button 
-                  className={`text-gray-500 hover:text-blue-500 p-2 rounded-full hover:bg-gray-100 transition-colors ${showEmojiPicker ? 'bg-blue-100' : ''}`}
+                  className={`text-gray-400 hover:text-blue-400 p-2 rounded-full hover:bg-gray-800 transition-colors ${showEmojiPicker ? 'bg-blue-900' : ''}`}
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                   aria-label="Emoji picker"
                 >
@@ -675,7 +697,7 @@ export default function ChatWindow({
                   ref={inputRef}
                   type="text"
                   placeholder={isRecording ? "Recording..." : "Type your message..."}
-                  className="flex-1 border border-gray-300 px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all"
+                  className="flex-1 border border-gray-600 bg-gray-800 text-white px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder-gray-500"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
@@ -705,7 +727,7 @@ export default function ChatWindow({
                   className={`p-2 rounded-full transition-colors ${
                     isRecording 
                       ? 'text-red-500 animate-pulse' 
-                      : 'text-gray-500 hover:text-blue-500'
+                      : 'text-gray-400 hover:text-blue-400'
                   }`}
                   onClick={toggleRecording}
                   aria-label={isRecording ? "Stop recording" : "Record voice message"}
