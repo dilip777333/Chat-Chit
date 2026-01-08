@@ -150,18 +150,40 @@ export default function AuthChatApp() {
   useEffect(() => {
     if (!currentUser?.id) return;
 
-    const handleNewMessage = (msg: any) => {
+    const handleNewMessage = async (msg: any) => {
+      const otherUserId = msg.senderId === currentUser.id ? msg.receiverId : msg.senderId;
+      const existingChatIndex = chats.findIndex(c => c.id === otherUserId);
+      
+      // If chat doesn't exist, fetch user details from server
+      let chatName = `User ${otherUserId}`;
+      let chatAvatar = "";
+      
+      if (existingChatIndex === -1) {
+        try {
+          // Fetch user details from accessChat API which returns full user info
+          const chatData = await chatService.accessChat(otherUserId);
+          const otherUser = chatData.other_user;
+          if (otherUser) {
+            chatName = otherUser.first_name && otherUser.last_name 
+              ? `${otherUser.first_name} ${otherUser.last_name}`
+              : otherUser.user_name || chatName;
+            chatAvatar = otherUser.profile_picture || "";
+          }
+        } catch (error) {
+          console.error('Error fetching user details for new chat:', error);
+        }
+      }
+
       setChats(prevChats => {
-        const otherUserId = msg.senderId === currentUser.id ? msg.receiverId : msg.senderId;
-        const existingChatIndex = prevChats.findIndex(c => c.id === otherUserId);
+        const updatedExistingIndex = prevChats.findIndex(c => c.id === otherUserId);
         
-        const updatedChat: Chat = existingChatIndex > -1 
-          ? { ...prevChats[existingChatIndex] }
+        const updatedChat: Chat = updatedExistingIndex > -1 
+          ? { ...prevChats[updatedExistingIndex] }
           : {
               id: otherUserId,
               type: "personal",
-              name: `User ${otherUserId}`, // Fallback if name not known
-              avatar: "",
+              name: chatName,
+              avatar: chatAvatar,
               status: "accepted",
               unread_count: 0
             } as Chat;
@@ -176,8 +198,8 @@ export default function AuthChatApp() {
         }
 
         let newChats = [...prevChats];
-        if (existingChatIndex > -1) {
-          newChats.splice(existingChatIndex, 1);
+        if (updatedExistingIndex > -1) {
+          newChats.splice(updatedExistingIndex, 1);
         }
         return [updatedChat, ...newChats];
       });
@@ -205,7 +227,7 @@ export default function AuthChatApp() {
     return () => {
       // Cleanup if needed
     };
-  }, [currentUser?.id, activeChat]);
+  }, [currentUser?.id, activeChat, chats]);
 
   useEffect(() => {
     // Clean up newly created chat once it's in the main chats list
