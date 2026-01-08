@@ -507,12 +507,12 @@ export default function ChatWindow({
 
       {activeChat ? (
         <>
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white sticky top-0">
+          <div className="p-4 border-b border-gray-700 flex items-center justify-between sticky top-0" style={{background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)"}}>
             <div className="flex items-center gap-3">
               {isMobile && (
                 <button 
                   onClick={onOpenList}
-                  className="mr-2 text-gray-600"
+                  className="mr-2 text-gray-300"
                 >
                   <Menu size={20} />
                 </button>
@@ -529,7 +529,7 @@ export default function ChatWindow({
                 )}
               </div>
               <div 
-                className="font-semibold cursor-pointer"
+                className="font-semibold cursor-pointer text-white"
                 onClick={() => handleNameClick(activeChat)}
               >
                 {currentChat?.name || "Chat"}
@@ -538,14 +538,14 @@ export default function ChatWindow({
             {!isRequest && (
               <div className="flex items-center gap-4">
                 <button 
-                  className="text-gray-600 hover:text-blue-500 transition-colors"
+                  className="text-gray-300 hover:text-blue-400 transition-colors"
                   onClick={() => handleStartCall(false)}
                   aria-label="Audio call"
                 >
                   <Phone size={20} />
                 </button>
                 <button 
-                  className="text-gray-600 hover:text-blue-500 transition-colors"
+                  className="text-gray-300 hover:text-blue-400 transition-colors"
                   onClick={() => handleStartCall(true)}
                   aria-label="Video call"
                 >
