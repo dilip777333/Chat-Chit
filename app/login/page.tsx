@@ -115,12 +115,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Background Image */}
-      <div className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700" 
-           style={{ backgroundImage: "url('/images/main-bg.jpg')" }}>
-      </div>
-
+    <div className="min-h-screen relative overflow-hidden" style={{
+      background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)"
+    }}>
       {/* Main Content */}
       <div className="relative z-10 min-h-screen flex">
         {/* Left Side - OTP Form */}
@@ -271,8 +268,10 @@ export default function LoginPage() {
 
       {/* OTP Input Modal */}
       {showOtpInput && (
-        <div className="fixed inset-0 bg-cover bg-center bg-no-repeat flex items-center justify-center sm:justify-start z-50 p-4" 
-             style={{ backgroundImage: "url('/images/otp-bg.jpg')" }}>
+        <div className="fixed inset-0 flex items-center justify-center sm:justify-start z-50 p-4" 
+             style={{
+               background: "linear-gradient(180deg, #0f172a 0%, #020617 100%)"
+             }}>
           <div className="bg-white bg-opacity-95 backdrop-blur-sm rounded-2xl shadow-xl p-6 w-full max-w-md border border-gray-200 sm:ml-60">
             <div className="text-center mb-6">
               <button

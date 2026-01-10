@@ -377,6 +377,12 @@ export default function ChatWindow({
   };
 
   const stopRecording = () => {
+    // Stop speech recognition if active
+    if ((window as any).currentRecognition) {
+      (window as any).currentRecognition.stop();
+      (window as any).currentRecognition = null;
+    }
+    
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop();
       mediaRecorder.stream.getTracks().forEach(track => track.stop());
@@ -420,10 +426,64 @@ export default function ChatWindow({
   };
 
   const toggleRecording = () => {
+    // Check if browser supports Web Speech API
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
     if (isRecording) {
       stopRecording();
     } else {
-      startRecording();
+      // Try to use speech-to-text first
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        
+        let interimTranscript = '';
+        
+        recognition.onstart = () => {
+          setIsRecording(true);
+          setRecordingTime(0);
+          recordingIntervalRef.current = setInterval(() => {
+            setRecordingTime(prev => prev + 1);
+          }, 1000);
+        };
+        
+        recognition.onresult = (event: any) => {
+          interimTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              setNewMessage(prev => prev + transcript + ' ');
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+        };
+        
+        recognition.onerror = (event: any) => {
+          console.error('Speech recognition error', event.error);
+          setIsRecording(false);
+          if (recordingIntervalRef.current) {
+            clearInterval(recordingIntervalRef.current);
+          }
+        };
+        
+        recognition.onend = () => {
+          setIsRecording(false);
+          if (recordingIntervalRef.current) {
+            clearInterval(recordingIntervalRef.current);
+          }
+          recordingIntervalRef.current = null;
+        };
+        
+        recognition.start();
+        // Store recognition instance for stopping later
+        (window as any).currentRecognition = recognition;
+      } else {
+        // Fallback to regular audio recording
+        startRecording();
+      }
     }
   };
 
@@ -535,24 +595,7 @@ export default function ChatWindow({
                 {currentChat?.name || "Chat"}
               </div>
             </div>
-            {!isRequest && (
-              <div className="flex items-center gap-4">
-                <button 
-                  className="text-gray-300 hover:text-blue-400 transition-colors"
-                  onClick={() => handleStartCall(false)}
-                  aria-label="Audio call"
-                >
-                  <Phone size={20} />
-                </button>
-                <button 
-                  className="text-gray-300 hover:text-blue-400 transition-colors"
-                  onClick={() => handleStartCall(true)}
-                  aria-label="Video call"
-                >
-                  <Video size={20} />
-                </button>
-              </div>
-            )}
+
           </div>
 
           <div className="flex-1 p-4 overflow-y-auto flex flex-col-reverse">
@@ -630,25 +673,6 @@ export default function ChatWindow({
                 </div>
               )}
               
-              {showAttachmentMenu && (
-                <div className="absolute bottom-16 left-12 bg-gray-900 shadow-lg rounded-lg p-2 z-10 w-48 border border-gray-700">
-                  <button 
-                    onClick={() => {
-                      fileInputRef.current?.click();
-                      setShowAttachmentMenu(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-800 rounded text-left text-gray-200"
-                  >
-                    <FileText size={16} /> Send File
-                  </button>
-                  <button 
-                    onClick={handleLocationShare}
-                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-800 rounded text-left text-gray-200"
-                  >
-                    <MapPin size={16} /> Share Location
-                  </button>
-                </div>
-              )}
               
               {audioUrl && (
                 <div className="mb-3 p-3 bg-gray-800 rounded-lg flex items-center justify-between border border-gray-700">
@@ -677,14 +701,6 @@ export default function ChatWindow({
               )}
               
               <div className="flex items-center gap-2">
-                <button 
-                  className="text-gray-400 hover:text-blue-400 p-2 rounded-full hover:bg-gray-800 transition-colors"
-                  onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
-                  aria-label="Attachments"
-                >
-                  <Paperclip size={20} />
-                </button>
-                
                 <button 
                   className={`text-gray-400 hover:text-blue-400 p-2 rounded-full hover:bg-gray-800 transition-colors ${showEmojiPicker ? 'bg-blue-900' : ''}`}
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
