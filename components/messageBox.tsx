@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, Smile, Paperclip, Phone, Video, Mic, MapPin, FileText, Menu } from "lucide-react";
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 // import CallScreen from "@/components/callmodel/page";
@@ -32,6 +32,7 @@ export default function ChatWindow({
   isMobile,
   onOpenList,
   chats,
+  setChats,
   newlyCreatedChat
 }: { 
   activeChat: any | null; 
@@ -39,6 +40,7 @@ export default function ChatWindow({
   isMobile?: boolean;
   onOpenList?: () => void;
   chats: Chat[];
+  setChats?: (chats: any) => void;
   newlyCreatedChat?: Chat | null;
 }) {
   const router = useRouter();
@@ -140,16 +142,75 @@ export default function ChatWindow({
     };
 
     fetchMessages();
+
+    // Set up periodic refresh every 3 seconds to check for message status updates
+    const refreshInterval = setInterval(() => {
+      if (activeChat && currentUser) {
+        const otherUserId = activeChat.other_user?.id || activeChat.receiverId || activeChat.id;
+        if (otherUserId) {
+          chatService.getOldChat(currentUser.id, otherUserId, 100, 0).then(history => {
+            if (history && history.messages) {
+              setMessages(prevMessages => {
+                const updatedMessages = prevMessages.map(prevMsg => {
+                  const serverMsg = history.messages.find((m: any) => m.id === prevMsg.id);
+                  if (serverMsg && serverMsg.is_read !== prevMsg.isRead) {
+                    console.log('🔄 Status updated for message:', prevMsg.id, '- Now read:', serverMsg.is_read);
+                    return {
+                      ...prevMsg,
+                      isRead: serverMsg.is_read,
+                      status: serverMsg.is_read ? 'read' : prevMsg.status
+                    };
+                  }
+                  return prevMsg;
+                });
+                return updatedMessages;
+              });
+            }
+          }).catch(err => console.log('Periodic refresh error:', err));
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(refreshInterval);
   }, [activeChat, currentUser]);
 
   useEffect(() => {
     const handleReceiveMessage = (msg: any) => {
+      console.log('📨 handleReceiveMessage called in messageBox with:', msg);
+      
       // Only add message if it belongs to the active chat
       // AND it's not a message we just sent (to avoid duplicates)
-      if (activeChat && msg.chatId === activeChat.id && msg.senderId !== currentUser?.id) {
+      if (!activeChat || !currentUser) {
+        console.log('⚠️ No activeChat or currentUser', { activeChat: !!activeChat, currentUser: !!currentUser });
+        return;
+      }
+      
+      const senderId = msg.senderId;
+      const activeChatUserId = activeChat.other_user?.id || activeChat.id;
+      
+      console.log('📨 Checking message:', { 
+        senderId, 
+        activeChatUserId, 
+        currentUserId: currentUser.id,
+        isFromActiveUser: senderId === activeChatUserId,
+        isNotFromMe: senderId !== currentUser.id
+      });
+      
+      // Check if message is from the person we're chatting with
+      const isFromActiveChatUser = senderId === activeChatUserId;
+      const isNotFromMe = senderId !== currentUser.id;
+      
+      if (isFromActiveChatUser && isNotFromMe) {
+        console.log('✅ Message is for active chat, adding to messageBox');
+        
+        // Immediately mark the message as read since the chat is open
+        console.log('👀 Marking message as read:', msg.id);
+        chatService.markMessageRead(msg.id, currentUser.id);
+        
         setMessages(prev => {
           // Check if message already exists to prevent duplicates
           if (prev.some(m => m.id === msg.id)) {
+            console.log('⚠️ Message already exists, skipping');
             return prev;
           }
           const newMsg: Message = {
@@ -159,33 +220,44 @@ export default function ChatWindow({
             time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             isYou: false,
             type: msg.messageType as any || 'text',
-            status: 'delivered',
-            isRead: false,
+            status: 'read', // Mark as read since we're viewing the chat
+            isRead: true,
           };
+          console.log('✅ Adding new message:', newMsg);
           return [...prev, newMsg];
         });
+      } else {
+        console.log('❌ Message not for this chat or from me');
       }
     };
 
     const handleMessageSent = (msg: any) => {
-      // Add our sent messages to the chat (from message_sent event)
-      if (activeChat && msg.chatId === activeChat.id && msg.senderId === currentUser?.id) {
+      // Update the temp message with the actual ID and timestamp from server
+      if (!activeChat || !currentUser) return;
+      
+      const receiverId = msg.receiverId;
+      const activeChatUserId = activeChat.other_user?.id || activeChat.id;
+      const isFromMe = msg.senderId === currentUser.id;
+      
+      // Check if message was sent to the person we're chatting with
+      if (receiverId === activeChatUserId && isFromMe) {
         setMessages(prev => {
-          // Check if message already exists to prevent duplicates
-          if (prev.some(m => m.id === msg.id)) {
-            return prev;
+          // Update the last message (which is our temp message) with actual server data
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg && lastMsg.isYou && !lastMsg.id) {
+            // Update temp message with actual ID and timestamp
+            return prev.map((m, idx) => 
+              idx === prev.length - 1 
+                ? {
+                    ...m,
+                    id: msg.id,
+                    time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    status: 'delivered'
+                  }
+                : m
+            );
           }
-          const newMsg: Message = {
-            id: msg.id,
-            sender: "You",
-            text: msg.message,
-            time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isYou: true,
-            type: msg.messageType as any || 'text',
-            status: 'delivered',
-            isRead: false,
-          };
-          return [...prev, newMsg];
+          return prev;
         });
       }
     };
@@ -193,9 +265,14 @@ export default function ChatWindow({
     const handleMessageRead = (data: any) => {
       // Update message status to read when sender receives this event
       const { messageId } = data;
-      setMessages(prev => prev.map(msg => 
-        msg.id === messageId ? { ...msg, status: 'read', isRead: true } : msg
-      ));
+      console.log('✅ Message marked as read by receiver:', messageId);
+      setMessages(prev => prev.map(msg => {
+        if (msg.id === messageId) {
+          console.log('📖 Updating message status to read:', messageId);
+          return { ...msg, status: 'read', isRead: true };
+        }
+        return msg;
+      }));
     };
 
     const handleMessagesRead = (data: any) => {
@@ -207,17 +284,20 @@ export default function ChatWindow({
       console.log(`✅ ${count} messages marked as read`);
     };
 
-    // Only register listeners if we have an active chat
-    if (activeChat && currentUser) {
-      chatService.onReceiveMessage(handleReceiveMessage);
-      chatService.onMessageSent(handleMessageSent);
-      chatService.onMessageRead?.(handleMessageRead);
-      chatService.onMessagesRead?.(handleMessagesRead);
-    }
+    // Always register listeners with latest state to ensure closures are fresh
+    console.log('🔧 Registering socket listeners for activeChat:', activeChat?.id);
+    chatService.onReceiveMessage(handleReceiveMessage);
+    chatService.onMessageSent(handleMessageSent);
+    chatService.onMessageRead?.(handleMessageRead);
+    chatService.onMessagesRead?.(handleMessagesRead);
+    console.log('✅ Socket listeners registered in messageBox');
 
     return () => {
-      // Note: chatService listeners should be unregistered here if supported
-      // For now, we rely on the checks inside handlers to prevent duplicate processing
+      chatService.offReceiveMessage(handleReceiveMessage);
+      chatService.offMessageSent(handleMessageSent);
+      chatService.offMessageRead(handleMessageRead);
+      chatService.offMessagesRead(handleMessagesRead);
+      console.log('🗑️ Socket listeners unregistered in messageBox');
     };
   }, [activeChat, currentChat?.name, currentUser?.id]);
 
@@ -260,7 +340,16 @@ export default function ChatWindow({
     setIsCallMinimized(!isCallMinimized);
   };
 
+  // Prevent duplicate message sends with debouncing
+  const isSendingRef = useRef(false);
+
   const handleSendMessage = async () => {
+    // Prevent duplicate sends if already sending
+    if (isSendingRef.current) {
+      console.warn("⚠️ Message send already in progress, ignoring duplicate request");
+      return;
+    }
+
     if (!newMessage.trim() || !activeChat || !currentUser) return;
     
     // Determine receiver ID based on activeChat structure
@@ -272,11 +361,51 @@ export default function ChatWindow({
       return;
     }
     
+    // Mark as sending to prevent duplicates
+    isSendingRef.current = true;
+    
     const messageText = newMessage.trim();
+    const timestamp = new Date();
+    
+    // Add message to state immediately for instant UI feedback
+    const tempMessage: Message = {
+      sender: "You",
+      text: messageText,
+      time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isYou: true,
+      type: 'text',
+      status: 'sent'
+    };
+    setMessages(prev => [...prev, tempMessage]);
+    
     setNewMessage("");
     setShowEmojiPicker(false);
 
     try {
+      // Update the chat list with the latest message
+      if (setChats) {
+        setChats((prevChats: Chat[]) => {
+          const updatedChats = prevChats.map(chat =>
+            chat.id === receiverId
+              ? {
+                  ...chat,
+                  message: `You: ${messageText}`,
+                  time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  timestamp: timestamp.getTime()
+                }
+              : chat
+          );
+          // Move the updated chat to the top
+          const chatIndex = updatedChats.findIndex(c => c.id === receiverId);
+          if (chatIndex > 0) {
+            const [chat] = updatedChats.splice(chatIndex, 1);
+            updatedChats.unshift(chat);
+          }
+          return updatedChats;
+        });
+      }
+
+      console.log("📤 Sending message...");
       // Try Socket.IO first
       if (chatService.isConnected()) {
         await chatService.sendMessage({
@@ -286,8 +415,7 @@ export default function ChatWindow({
           messageType: "text",
           chatId: chatId
         });
-        // Don't add message to state here - let the socket listener handle it
-        // This prevents duplicate messages
+        console.log("✅ Message sent successfully via socket");
       } else {
         console.warn("Socket not connected, attempting to reconnect...");
         // Fallback: Try to reconnect and resend
@@ -300,12 +428,17 @@ export default function ChatWindow({
           messageType: "text",
           chatId: chatId
         });
-        // Don't add message to state here
+        console.log("✅ Message sent successfully after reconnect");
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('❌ Error sending message:', error);
       // Restore message text so user can retry
       setNewMessage(messageText);
+      // Remove the temp message on error
+      setMessages(prev => prev.filter(m => m !== tempMessage));
+    } finally {
+      // Always reset sending flag
+      isSendingRef.current = false;
     }
   };
 
@@ -623,7 +756,7 @@ export default function ChatWindow({
                   <div className={`text-xs text-gray-500 mt-1 flex items-center gap-1 ${msg.isYou ? 'justify-end' : 'justify-start'}`}>
                     <span>{msg.time}</span>
                     {msg.isYou && (
-                      <span className={`flex gap-0.5 ${msg.status === 'read' ? 'text-blue-500' : 'text-gray-400'}`}>
+                      <span className={`flex gap-0.5 font-bold ${msg.status === 'read' ? 'text-blue-500' : 'text-gray-400'}`}>
                         <span>✓</span>
                         <span>✓</span>
                       </span>
@@ -759,7 +892,7 @@ export default function ChatWindow({
         </>
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-500">
-          Select a chat to start messaging
+          Select a user to chat
         </div>
       )}
     </div>

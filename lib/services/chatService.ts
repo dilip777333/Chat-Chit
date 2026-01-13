@@ -46,6 +46,10 @@ export interface DeleteMessageResponse {
 class ChatService {
   private socket: Socket | null = null;
   private currentUserId: number | null = null;
+  private receiveMessageCallbacks: Array<(message: Message) => void> = [];
+  private messageSentCallbacks: Array<(message: Message) => void> = [];
+  private messageReadCallbacks: Array<(data: { messageId: number; readBy: number; readAt: string }) => void> = [];
+  private messagesReadCallbacks: Array<(data: { readBy: number; count: number }) => void> = [];
 
   // Initialize Socket.IO connection
   connect(userId: number): Promise<void> {
@@ -266,7 +270,10 @@ class ChatService {
   // Mark single message as read
   markMessageRead(messageId: number, userId: number): void {
     if (this.socket) {
+      console.log('📤 Emitting mark_message_read:', { messageId, userId });
       this.socket.emit("mark_message_read", { messageId, userId });
+    } else {
+      console.warn('⚠️ Socket not connected, cannot mark message as read');
     }
   }
 
@@ -274,6 +281,22 @@ class ChatService {
   markAllRead(userId: number, otherUserId: number): void {
     if (this.socket) {
       this.socket.emit("mark_all_read", { userId, otherUserId });
+    }
+  }
+
+  // Emit open_chat event to notify server that chat is active
+  openChat(data: { userId: number; otherUserId: number }): void {
+    if (this.socket) {
+      console.log('📂 Emitting open_chat:', data);
+      this.socket.emit("open_chat", data);
+    }
+  }
+
+  // Emit close_chat event to notify server that chat is closed
+  closeChat(data: { userId: number; otherUserId: number }): void {
+    if (this.socket) {
+      console.log('📤 Emitting close_chat:', data);
+      this.socket.emit("close_chat", data);
     }
   }
 
@@ -289,34 +312,82 @@ class ChatService {
   // Socket event listeners
   onReceiveMessage(callback: (message: Message) => void): void {
     if (this.socket) {
-      // Remove old listener if it exists, then add new one
+      // Add to callbacks array
+      this.receiveMessageCallbacks.push(callback);
+      console.log(`✅ receive_message callback registered`);
+      
+      // Set up the socket listener if not already
       this.socket.off("receive_message");
-      this.socket.on("receive_message", callback);
+      this.socket.on("receive_message", (msg: any) => {
+        console.log('🔵 Socket: receive_message event fired');
+        // Call all registered callbacks
+        this.receiveMessageCallbacks.forEach(cb => cb(msg));
+      });
     }
+  }
+
+  offReceiveMessage(callback: (message: Message) => void): void {
+    this.receiveMessageCallbacks = this.receiveMessageCallbacks.filter(cb => cb !== callback);
   }
 
   onMessageSent(callback: (message: Message) => void): void {
     if (this.socket) {
-      // Remove old listener if it exists, then add new one
+      // Add to callbacks array
+      this.messageSentCallbacks.push(callback);
+      console.log(`✅ message_sent callback registered`);
+      
+      // Set up the socket listener if not already
       this.socket.off("message_sent");
-      this.socket.on("message_sent", callback);
+      this.socket.on("message_sent", (msg: any) => {
+        console.log('🔵 Socket: message_sent event fired');
+        // Call all registered callbacks
+        this.messageSentCallbacks.forEach(cb => cb(msg));
+      });
     }
+  }
+
+  offMessageSent(callback: (message: Message) => void): void {
+    this.messageSentCallbacks = this.messageSentCallbacks.filter(cb => cb !== callback);
   }
 
   onMessageRead(callback: (data: { messageId: number; readBy: number; readAt: string }) => void): void {
     if (this.socket) {
-      // Remove old listener if it exists, then add new one
+      // Add to callbacks array
+      this.messageReadCallbacks.push(callback);
+      console.log(`✅ message_read callback registered`);
+      
+      // Set up the socket listener if not already
       this.socket.off("message_read");
-      this.socket.on("message_read", callback);
+      this.socket.on("message_read", (data: any) => {
+        console.log('🔵 Socket: message_read event fired with data:', data);
+        // Call all registered callbacks
+        this.messageReadCallbacks.forEach(cb => cb(data));
+      });
     }
+  }
+
+  offMessageRead(callback: (data: { messageId: number; readBy: number; readAt: string }) => void): void {
+    this.messageReadCallbacks = this.messageReadCallbacks.filter(cb => cb !== callback);
   }
 
   onMessagesRead(callback: (data: { readBy: number; count: number }) => void): void {
     if (this.socket) {
-      // Remove old listener if it exists, then add new one
+      // Add to callbacks array
+      this.messagesReadCallbacks.push(callback);
+      console.log(`✅ messages_read callback registered`);
+      
+      // Set up the socket listener if not already
       this.socket.off("messages_read");
-      this.socket.on("messages_read", callback);
+      this.socket.on("messages_read", (data: any) => {
+        console.log('🔵 Socket: messages_read event fired with data:', data);
+        // Call all registered callbacks
+        this.messagesReadCallbacks.forEach(cb => cb(data));
+      });
     }
+  }
+
+  offMessagesRead(callback: (data: { readBy: number; count: number }) => void): void {
+    this.messagesReadCallbacks = this.messagesReadCallbacks.filter(cb => cb !== callback);
   }
 
   onMessageDeleted(callback: (data: { messageId: number; deletedBy: string }) => void): void {

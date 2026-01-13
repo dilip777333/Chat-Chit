@@ -419,9 +419,22 @@ export default function ChatListPanel({
                           <div className="text-gray-400 text-xs truncate">
                             {chat.message}
                           </div>
-                          {chat.unread && (
-                            <div className="w-2 h-2 rounded-full bg-blue-500 ml-2"></div>
-                          )}
+                          <div className="flex items-center gap-1 ml-2">
+                            {chat.is_last_message_from_me && (
+                              <span className="text-xs">
+                                {chat.message_status === 'seen' ? (
+                                  <span className="text-blue-400">✓✓</span>
+                                ) : chat.message_status === 'received' ? (
+                                  <span className="text-gray-400">✓✓</span>
+                                ) : (
+                                  <span className="text-gray-400">✓</span>
+                                )}
+                              </span>
+                            )}
+                            {chat.unread && (
+                              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

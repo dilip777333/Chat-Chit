@@ -45,6 +45,12 @@ export default function AuthChatApp() {
       // Use the other user's ID for the chat list for consistency with getChatList
       const otherUserId = chat.other_user.id;
 
+      // Emit open_chat event to mark this chat as active
+      if (currentUser?.id) {
+        console.log("📂 Emitting open_chat event");
+        chatService.openChat({ userId: currentUser.id, otherUserId: otherUserId });
+      }
+
       // Clear unread status for this chat when opening it
       setChats(prevChats =>
         prevChats.map(c =>
@@ -85,6 +91,15 @@ export default function AuthChatApp() {
     setActiveChat(newChat.id);
   };
 
+  const handleCloseChat = () => {
+    if (activeChat && currentUser?.id) {
+      const otherUserId = activeChat.other_user?.id || activeChat.id;
+      console.log("📤 Emitting close_chat event");
+      chatService.closeChat({ userId: currentUser.id, otherUserId: otherUserId });
+    }
+    setActiveChat(null);
+  };
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -116,7 +131,7 @@ export default function AuthChatApp() {
               name: chatUser.first_name && chatUser.last_name 
                 ? `${chatUser.first_name} ${chatUser.last_name}`
                 : chatUser.user_name || `User ${chatUser.id}`,
-              message: chatUser.is_last_message_from_me 
+              message: chatUser.is_from_me 
                 ? `You: ${chatUser.last_message}`
                 : chatUser.last_message,
               time: new Date(chatUser.last_message_time || chatUser.last_message_created_at).toLocaleTimeString(),
@@ -125,8 +140,8 @@ export default function AuthChatApp() {
               status: "accepted" as const,
               timestamp: new Date(chatUser.last_message_time || chatUser.last_message_created_at).getTime(),
               unread_count: chatUser.unread_count,
-              is_last_message_from_me: chatUser.is_last_message_from_me,
-              message_status: chatUser.message_status
+              is_last_message_from_me: chatUser.is_from_me,
+              message_status: chatUser.is_from_me ? (chatUser.is_read ? 'seen' : 'sent') : 'received'
             }));
             console.log("✅ Transformed chats:", transformedChats);
             setChats(transformedChats);
@@ -205,10 +220,6 @@ export default function AuthChatApp() {
       });
     };
 
-    chatService.onReceiveMessage(handleNewMessage);
-    chatService.onMessageSent(handleNewMessage);
-
-    // Listen for messages being marked as read
     const handleMessagesRead = (data: any) => {
       if (activeChat && activeChat.other_user) {
         const otherUserId = activeChat.other_user.id;
@@ -222,10 +233,30 @@ export default function AuthChatApp() {
       }
     };
 
+    // Listen for individual message marked as read
+    const handleMessageRead = (data: any) => {
+      const { readBy } = data;
+      // Update the chat list to show message is seen
+      setChats(prevChats =>
+        prevChats.map(c => 
+          c.id === readBy
+            ? { ...c, message_status: 'seen' }
+            : c
+        )
+      );
+    };
+
+    chatService.onReceiveMessage(handleNewMessage);
+    chatService.onMessageSent(handleNewMessage);
     chatService.onMessagesRead?.(handleMessagesRead);
+    chatService.onMessageRead?.(handleMessageRead);
 
     return () => {
-      // Cleanup if needed
+      chatService.offReceiveMessage(handleNewMessage);
+      chatService.offMessageSent(handleNewMessage);
+      chatService.offMessagesRead(handleMessagesRead);
+      chatService.offMessageRead(handleMessageRead);
+      console.log('🗑️ Socket listeners unregistered in AuthChatApp');
     };
   }, [currentUser?.id, activeChat, chats]);
 
@@ -257,20 +288,21 @@ export default function AuthChatApp() {
           activeChat={activeChat}
           setActiveChat={handleSelectChat}
           isMobile={isMobile}
-          onCloseChat={() => setActiveChat(null)}
+          onCloseChat={handleCloseChat}
           chats={chats}
           setChats={setChats}
           onAddNewChat={handleAddNewChat}
           onSelectChat={handleSelectChat}
         />
-                {activeChat && activeChat.id && (
+                {(!isMobile || activeChat) && (
           <div className={`${isMobile ? 'fixed inset-0 z-50' : 'flex-1'} bg-white`}>
                         <ChatWindow
               activeChat={activeChat}
               setActiveChat={setActiveChat}
               isMobile={isMobile}
-              onOpenList={() => setActiveChat(null)}
+              onOpenList={handleCloseChat}
               chats={chats}
+              setChats={setChats}
               newlyCreatedChat={newlyCreatedChat}
             />
           </div>
