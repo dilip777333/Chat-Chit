@@ -17,8 +17,8 @@ export default function Sidebar({ onProfileClick }: { onProfileClick: () => void
   };
 
   return (
-    <aside className="h-screen w-16 bg-gradient-to-b from-purple-500 via-pink-500 to-blue-500 shadow-md flex flex-col items-center py-4 border-r border-gray-200">
-      <div className="bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 p-2 rounded-xl">
+    <aside className="h-screen w-16 bg-linear-to-b from-purple-500 via-pink-500 to-blue-500 shadow-md flex flex-col items-center py-4 border-r border-gray-200">
+      <div className="bg-linear-to-r from-purple-600 via-pink-600 to-blue-600 p-2 rounded-xl">
         <MessageSquare className="text-white w-6 h-6" />
       </div>
       

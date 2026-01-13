@@ -274,7 +274,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               <button
                 onClick={handleUpdateProfile}
                 disabled={isLoading || !firstName.trim() || !lastName.trim() || !username.trim()}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-linear-to-r from-blue-500 to-purple-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading && <Loader2 className="animate-spin" size={20} />}
                 {isLoading ? "Updating..." : "Update Profile"}

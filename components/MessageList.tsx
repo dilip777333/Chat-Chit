@@ -228,7 +228,7 @@ export default function ChatListPanel({
         }
       `}</style>
 
-      <div className="p-4 border-b border-gray-700 bg-gradient-to-r from-purple-600 via-pink-600 to-pink-500">
+      <div className="p-4 border-b border-gray-700 bg-linear-to-r from-purple-600 via-pink-600 to-pink-500">
         <div className="text-lg font-semibold flex justify-between items-center text-white">
           Messages
           
@@ -384,11 +384,7 @@ export default function ChatListPanel({
             <div>
               {searchTerm && <h3 className="p-3 text-sm font-semibold text-gray-300 bg-gray-800">Recent Chats</h3>}
               {filteredChats.map((chat) => {
-                const isActive = activeChat && (
-                  (typeof activeChat === 'number' && activeChat === chat.id) ||
-                  (activeChat.id === chat.id) ||
-                  (activeChat.other_user && activeChat.other_user.id === chat.id)
-                );
+                const isActive = activeChat && activeChat.id === chat.id;
                 
                 return (
                   <div

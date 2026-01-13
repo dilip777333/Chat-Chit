@@ -71,7 +71,7 @@ export default function ChatWindow({
     avatar: activeChat.other_user.profile_picture,
     status: 'accepted'
   } : null;
-  const isRequest = currentChat?.status === 'request' && !acceptedChats.includes(activeChat!);
+  const isRequest = currentChat?.status === 'request' && !acceptedChats.includes(activeChat?.id ?? 0);
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -100,7 +100,7 @@ export default function ChatWindow({
                 isYou: msg.sender_id === currentUser.id,
                 type: msg.message_type as 'text' | 'image' | 'document' | 'location' | 'audio',
                 isRead: msg.is_read,
-                status: msg.is_read ? 'read' : 'delivered' // Default status based on is_read
+                status: (msg.is_read ? 'read' : 'delivered') as 'read' | 'delivered' // Default status based on is_read
               }));
             console.log("✅ Old messages fetched:", transformedMessages.length);
             setMessages(transformedMessages);
@@ -129,7 +129,7 @@ export default function ChatWindow({
                   isYou: msg.sender_id === currentUser.id,
                   type: msg.message_type as 'text' | 'image' | 'document' | 'location' | 'audio',
                   isRead: msg.is_read,
-                  status: msg.is_read ? 'read' : 'delivered'
+                  status: (msg.is_read ? 'read' : 'delivered') as 'read' | 'delivered'
                 }));
               setMessages(transformedMessages);
             }
@@ -153,12 +153,12 @@ export default function ChatWindow({
               setMessages(prevMessages => {
                 const updatedMessages = prevMessages.map(prevMsg => {
                   const serverMsg = history.messages.find((m: any) => m.id === prevMsg.id);
-                  if (serverMsg && serverMsg.is_read !== prevMsg.isRead) {
-                    console.log('🔄 Status updated for message:', prevMsg.id, '- Now read:', serverMsg.is_read);
+                  if (serverMsg && serverMsg.isRead !== prevMsg.isRead) {
+                    console.log('🔄 Status updated for message:', prevMsg.id, '- Now read:', serverMsg.isRead);
                     return {
                       ...prevMsg,
-                      isRead: serverMsg.is_read,
-                      status: serverMsg.is_read ? 'read' : prevMsg.status
+                      isRead: serverMsg.isRead,
+                      status: serverMsg.isRead ? 'read' : prevMsg.status
                     };
                   }
                   return prevMsg;
@@ -710,7 +710,7 @@ export default function ChatWindow({
                   <Menu size={20} />
                 </button>
               )}
-              <div className="w-10 h-10 rounded-full bg-gradient-to-b from-purple-500 via-pink-500 to-blue-500 flex items-center justify-center text-white font-semibold overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-linear-to-b from-purple-500 via-pink-500 to-blue-500 flex items-center justify-center text-white font-semibold overflow-hidden">
                 {currentChat?.avatar ? (
                   <img 
                     src={currentChat.avatar}
