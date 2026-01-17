@@ -1,5 +1,4 @@
 "use client";
-
 import { AuthProvider } from "@/contexts/AuthContext";
 import AuthChatApp from "./AuthChatApp";
 

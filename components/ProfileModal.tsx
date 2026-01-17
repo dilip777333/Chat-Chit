@@ -11,42 +11,30 @@ interface ProfileModalProps {
 
 export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const { currentUser, updateUser } = useAuth();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [username, setUsername] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState("");
-  const [token, setToken] = useState<string | null>(null);
 
-  // Fetch user profile when modal opens
   useEffect(() => {
     if (isOpen && currentUser) {
       fetchProfile();
     }
   }, [isOpen, currentUser]);
 
-  // Get token from localStorage (can be empty since cookie will be sent automatically)
-  useEffect(() => {
-    const storedToken = localStorage.getItem('auth_token');
-    setToken(storedToken);
-  }, []);
-
   const fetchProfile = async () => {
     try {
       setIsFetching(true);
       setError("");
       
-      // Token will be sent automatically in cookies by the browser
-      const response = await authService.getProfile("");
+      const response = await authService.getProfile();
       
       if (response.success && response.user) {
         const user = response.user;
-        setFirstName(user.first_name || "");
-        setLastName(user.last_name || "");
         setUsername(user.user_name || "");
         setPhoneNumber(user.phone_number || "");
         setEmail(user.email || "");
@@ -55,7 +43,6 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         }
       }
     } catch (err) {
-      console.error("Error fetching profile:", err);
       setError("Failed to load profile");
     } finally {
       setIsFetching(false);
@@ -78,72 +65,69 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       setIsLoading(true);
       setError("");
 
-      if (!firstName.trim() || !lastName.trim() || !username.trim()) {
-        setError("Please fill in all required fields");
+      if (!username.trim()) {
+        setError("Username is required");
         return;
       }
 
-      // Get token from localStorage
-      const authToken = localStorage.getItem('token');
-      
-      if (!authToken) {
-        setError("Authentication token not found. Please login again.");
+      if (!email.trim() && !phoneNumber.trim()) {
+        setError("Either email or phone number must be provided");
         return;
       }
 
-      const formData = new FormData();
-      formData.append('first_name', firstName);
-      formData.append('last_name', lastName);
-      formData.append('user_name', username);
-      formData.append('phone_number', phoneNumber);
-      formData.append('email', email);
-
-      // Add image file if it was selected
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      
+      let result;
       if (fileInput?.files?.[0]) {
+        const formData = new FormData();
         formData.append('profile_picture', fileInput.files[0]);
-      }
-
-      // Send FormData request
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/v1/api'}/users/profile`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-        },
-        body: formData,
-        credentials: 'include',
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to update profile');
+        formData.append('user_name', username);
+        
+        if (email.trim()) {
+          formData.append('email', email);
+        }
+        
+        if (phoneNumber.trim()) {
+          formData.append('phone_number', phoneNumber);
+        }
+        
+        if (password.trim()) {
+          formData.append('password', password);
+        }
+        
+        result = await authService.uploadProfilePicture(formData); // Token from cookie
+      } else {
+        const updateData = {
+          user_name: username,
+          email: email.trim() || undefined,
+          phone_number: phoneNumber.trim() || undefined,
+          password: password.trim() || undefined,
+        };
+        result = await authService.updateProfile(updateData);
       }
 
       if (result.success) {
         alert("Profile updated successfully!");
         
-        // Update the current user in context
         if (result.user) {
           const updatedUser = {
             ...currentUser,
-            first_name: result.user.first_name,
-            last_name: result.user.last_name,
             user_name: result.user.user_name,
             phone_number: result.user.phone_number,
             email: result.user.email,
             profile_picture: result.user.profile_picture,
           } as any;
           updateUser(updatedUser);
-          setProfileImage(result.user.profile_picture);
+          setProfileImage(result.user.profile_picture || null);
         }
+        
+        setPassword("");
         
         onClose();
       } else {
         setError(result.message || "Failed to update profile");
       }
     } catch (err: any) {
-      console.error("Error updating profile:", err);
       setError(err.message || "Failed to update profile");
     } finally {
       setIsLoading(false);
@@ -179,7 +163,6 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               </div>
             )}
 
-            {/* Profile Image */}
             <div className="flex flex-col items-center mb-6">
               <div className="w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden border-4 border-gray-600">
                 {profileImage ? (
@@ -208,33 +191,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               </button>
             </div>
 
-            {/* Profile Info */}
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    First Name
-                  </label>
-                  <input
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Username
@@ -255,6 +212,7 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   type="tel"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                  placeholder={email ? "Optional (if email is provided)" : "Required"}
                   className="w-full px-4 py-3 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -267,14 +225,28 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder={phoneNumber ? "Optional (if phone is provided)" : "Required"}
+                  className="w-full px-4 py-3 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Leave empty to keep current password"
                   className="w-full px-4 py-3 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
               <button
                 onClick={handleUpdateProfile}
-                disabled={isLoading || !firstName.trim() || !lastName.trim() || !username.trim()}
-                className="w-full bg-linear-to-r from-blue-500 to-purple-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={isLoading || !username.trim() || (!email.trim() && !phoneNumber.trim())}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading && <Loader2 className="animate-spin" size={20} />}
                 {isLoading ? "Updating..." : "Update Profile"}

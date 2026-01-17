@@ -2,8 +2,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 interface User {
-  id: number;
-  name: string;
+  id: string;
+  name?: string;
   email?: string;
   phone_number?: string;
   user_name: string;
@@ -31,18 +31,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing auth on mount
     const storedToken = localStorage.getItem("token");
     const userData = localStorage.getItem("currentUser");
     
     if (storedToken && userData) {
       try {
         const user = JSON.parse(userData);
-        setCurrentUser(user);
-        setToken(storedToken);
-        setIsAuthenticated(true);
+        const userId = user.id;
+        if (userId) {
+          const normalizedUser: User = {
+            ...user,
+            id: userId
+          };
+          setCurrentUser(normalizedUser);
+          setToken(storedToken);
+          setIsAuthenticated(true);
+        } else {
+          localStorage.removeItem("token");
+          localStorage.removeItem("currentUser");
+        }
       } catch (error) {
-        console.error("Failed to parse user data:", error);
         localStorage.removeItem("token");
         localStorage.removeItem("currentUser");
       }
@@ -51,9 +59,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = (user: User, token: string) => {
+    const userId = user.id;
+    if (!userId) return;
+    
+    const normalizedUser: User = {
+      ...user,
+      id: userId
+    };
+    
     localStorage.setItem("token", token);
-    localStorage.setItem("currentUser", JSON.stringify(user));
-    setCurrentUser(user);
+    localStorage.setItem("currentUser", JSON.stringify(normalizedUser));
+    setCurrentUser(normalizedUser);
     setToken(token);
     setIsAuthenticated(true);
   };

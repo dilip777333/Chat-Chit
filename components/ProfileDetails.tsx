@@ -13,8 +13,6 @@ interface ProfileDetailsProps {
 
 export default function ProfileDetails({ currentUser, onProfileComplete, onBack }: ProfileDetailsProps) {
   const [formData, setFormData] = useState({
-    first_name: "",
-    last_name: "",
     email: currentUser?.email || "",
     phone_number: currentUser?.phone_number || "",
   });
@@ -38,14 +36,6 @@ export default function ProfileDetails({ currentUser, onProfileComplete, onBack 
 
   const validateForm = () => {
     const newErrors: any = {};
-
-    if (!formData.first_name.trim()) {
-      newErrors.first_name = "First name is required";
-    }
-
-    if (!formData.last_name.trim()) {
-      newErrors.last_name = "Last name is required";
-    }
 
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
@@ -103,46 +93,6 @@ export default function ProfileDetails({ currentUser, onProfileComplete, onBack 
               {errors.submit}
             </div>
           )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                First Name *
-              </label>
-              <input
-                type="text"
-                name="first_name"
-                value={formData.first_name}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.first_name ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="John"
-              />
-              {errors.first_name && (
-                <p className="text-red-500 text-xs mt-1">{errors.first_name}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Last Name *
-              </label>
-              <input
-                type="text"
-                name="last_name"
-                value={formData.last_name}
-                onChange={handleInputChange}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.last_name ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="Doe"
-              />
-              {errors.last_name && (
-                <p className="text-red-500 text-xs mt-1">{errors.last_name}</p>
-              )}
-            </div>
-          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

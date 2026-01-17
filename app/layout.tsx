@@ -10,17 +10,9 @@ export default function RootLayout({
 }) {
   return (
     <AuthProvider>
-      <LayoutContent>{children}</LayoutContent>
+      <html lang="en">
+        <body>{children}</body>
+      </html>
     </AuthProvider>
-  );
-}
-
-function LayoutContent({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <body>
-        {children}
-      </body>
-    </html>
   );
 }

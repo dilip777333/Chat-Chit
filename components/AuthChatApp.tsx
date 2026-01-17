@@ -4,54 +4,44 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import ProtectedRoute from "./ProtectedRoute";
 import MessageList from "./MessageList";
-import ProfileDetails from "./ProfileDetails";
 import ProfileModal from "./ProfileModal";
 import ChatWindow from "./messageBox";
-import Siderbard from "./Siderbard";
+import Sidebar from "./Siderbord";
 import { chatService } from "@/lib/services/chatService";
-
-// Define the Chat type in the parent component
-type Chat = {
-  id: number;
-  type: string;
-  name: string;
-  message: string;
-  time: string;
-  unread?: boolean;
-  avatar: string;
-  status: "request" | "accepted" | "denied";
-  timestamp?: number;
-  unread_count?: number;
-  is_last_message_from_me?: boolean;
-  message_status?: 'sent' | 'seen' | 'received';
-};
+import { Chat } from "@/types/chat";
 
 export default function AuthChatApp() {
   const { isAuthenticated, isLoading, currentUser } = useAuth();
   const router = useRouter();
-  const [activeChat, setActiveChat] = useState<any | null>(null);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [messages, setMessages] = useState<any[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
-  const [newlyCreatedChat, setNewlyCreatedChat] = useState<Chat | null>(null);
+  const [activeChat, setActiveChat] = useState<any>(null);
 
-    const handleSelectChat = async (userId: number) => {
+  const handleSelectChat = async (userId: string) => {
     try {
-      console.log("🔵 Selecting chat with user:", userId);
-      const chat = await chatService.accessChat(userId);
-      console.log("✅ Chat object received:", chat);
-      setActiveChat(chat);
-
-      // Use the other user's ID for the chat list for consistency with getChatList
-      const otherUserId = chat.other_user.id;
-
-      // Emit open_chat event to mark this chat as active
-      if (currentUser?.id) {
-        console.log("📂 Emitting open_chat event");
-        chatService.openChat({ userId: currentUser.id, otherUserId: otherUserId });
+      console.log(' User selected for chat:', userId);
+      
+      if (!currentUser?.id) {
+        alert("Authentication error. Please login again.");
+        return;
       }
 
-      // Clear unread status for this chat when opening it
+      setSelectedChat(userId);
+      
+      console.log('🔗 Accessing chat for user:', userId);
+      const chat = await chatService.accessChat(userId);
+      console.log('💬 Chat access response:', chat);
+      
+      setActiveChat(chat);
+
+      const otherUserId = chat.other_user?.id || userId;
+
+      console.log('🔌 Opening chat socket:', { userId: currentUser.id, otherUserId });
+      chatService.openChat({ userId: currentUser.id as any, otherUserId: otherUserId as any });
+
       setChats(prevChats =>
         prevChats.map(c =>
           c.id === otherUserId
@@ -60,14 +50,11 @@ export default function AuthChatApp() {
         )
       );
 
-      // Add to chat list if it's not already there
       if (!chats.some(c => c.id === otherUserId)) {
         const newChat: Chat = {
           id: otherUserId,
           type: "personal",
-          name: chat.other_user.first_name && chat.other_user.last_name 
-            ? `${chat.other_user.first_name} ${chat.other_user.last_name}`
-            : chat.other_user.user_name || `User ${otherUserId}`,
+          name: chat.other_user.first_name ? `${chat.other_user.first_name} ${chat.other_user.last_name}` : chat.other_user.user_name || `User ${otherUserId}`,
           message: "",
           time: "",
           avatar: chat.other_user.profile_picture || "",
@@ -78,26 +65,19 @@ export default function AuthChatApp() {
         };
         setChats(prevChats => [newChat, ...prevChats]);
       }
-    } catch (error) {
-      console.error('❌ Error accessing chat:', error);
+    } catch (error: any) {
+      console.error('❌ Error in handleSelectChat:', error);
+      alert(error.message || "Failed to start chat. Please try again.");
     }
-  };
-
-  const handleAddNewChat = (newChat: Chat) => {
-    if (!chats.some(chat => chat.id === newChat.id)) {
-      setNewlyCreatedChat(newChat);
-      setChats(prevChats => [newChat, ...prevChats]);
-    }
-    setActiveChat(newChat.id);
   };
 
   const handleCloseChat = () => {
     if (activeChat && currentUser?.id) {
       const otherUserId = activeChat.other_user?.id || activeChat.id;
-      console.log("📤 Emitting close_chat event");
-      chatService.closeChat({ userId: currentUser.id, otherUserId: otherUserId });
+      chatService.closeChat({ userId: currentUser.id as any, otherUserId: otherUserId as any });
     }
     setActiveChat(null);
+    setSelectedChat(null);
   };
 
   useEffect(() => {
@@ -113,44 +93,29 @@ export default function AuthChatApp() {
   useEffect(() => {
     const fetchChatList = async () => {
       if (currentUser?.id) {
-        try {
-          // Connect to socket and wait for connection
-          await chatService.connect(currentUser.id);
-          console.log("✓ Socket connected successfully");
-          
-          // Use the new getChattedUsers API instead of getChatList
-          console.log("📞 Calling getChattedUsers with userId:", currentUser.id);
-          const chattedUsers = await chatService.getChattedUsers(currentUser.id);
-          console.log("📥 getChattedUsers response:", chattedUsers);
-          
-          if (Array.isArray(chattedUsers) && chattedUsers.length > 0) {
-            console.log("✅ Found", chattedUsers.length, "chatted users");
-            const transformedChats: Chat[] = chattedUsers.map((chatUser: any) => ({
-              id: chatUser.id,
-              type: "personal",
-              name: chatUser.first_name && chatUser.last_name 
-                ? `${chatUser.first_name} ${chatUser.last_name}`
-                : chatUser.user_name || `User ${chatUser.id}`,
-              message: chatUser.is_from_me 
-                ? `You: ${chatUser.last_message}`
-                : chatUser.last_message,
-              time: new Date(chatUser.last_message_time || chatUser.last_message_created_at).toLocaleTimeString(),
-              unread: chatUser.unread_count > 0,
-              avatar: chatUser.profile_picture || "",
-              status: "accepted" as const,
-              timestamp: new Date(chatUser.last_message_time || chatUser.last_message_created_at).getTime(),
-              unread_count: chatUser.unread_count,
-              is_last_message_from_me: chatUser.is_from_me,
-              message_status: chatUser.is_from_me ? (chatUser.is_read ? 'seen' : 'sent') : 'received'
-            }));
-            console.log("✅ Transformed chats:", transformedChats);
-            setChats(transformedChats);
-          } else {
-            console.log("⚠️ No chatted users found or response is not an array");
-            setChats([]);
-          }
-        } catch (error) {
-          console.error('❌ Error connecting or fetching chatted users:', error);
+        await chatService.connect(currentUser.id as any);
+        
+        const chattedUsers = await chatService.getChattedUsers(currentUser.id as any);
+        
+        if (Array.isArray(chattedUsers) && chattedUsers.length > 0) {
+          const transformedChats: Chat[] = chattedUsers.map((chatUser: any) => ({
+            id: chatUser.id,
+            type: "personal",
+            name: chatUser.first_name ? `${chatUser.first_name} ${chatUser.last_name}` : chatUser.user_name || `User ${chatUser.id}`,
+            message: chatUser.is_last_message_from_me ? `You: ${chatUser.last_message}` : chatUser.last_message,
+            time: new Date(chatUser.last_message_time || chatUser.last_message_created_at).toLocaleTimeString(),
+            avatar: chatUser.profile_picture || "",
+            status: "accepted" as const,
+            timestamp: new Date(chatUser.last_message_time || chatUser.last_message_created_at).getTime(),
+            last_message_time: chatUser.last_message_time || chatUser.last_message_created_at,
+            unread: chatUser.unread_count > 0,
+            unread_count: chatUser.unread_count,
+            is_last_message_from_me: chatUser.is_last_message_from_me,
+            message_status: chatUser.message_status
+          }));
+          setChats(transformedChats);
+        } else {
+          setChats([]);
         }
       }
     };
@@ -163,147 +128,159 @@ export default function AuthChatApp() {
   }, [currentUser?.id]);
 
   useEffect(() => {
-    if (!currentUser?.id) return;
-
-    const handleNewMessage = async (msg: any) => {
-      const otherUserId = msg.senderId === currentUser.id ? msg.receiverId : msg.senderId;
-      const existingChatIndex = chats.findIndex(c => c.id === otherUserId);
-      
-      // If chat doesn't exist, fetch user details from server
-      let chatName = `User ${otherUserId}`;
-      let chatAvatar = "";
-      
-      if (existingChatIndex === -1) {
-        try {
-          // Fetch user details from accessChat API which returns full user info
-          const chatData = await chatService.accessChat(otherUserId);
-          const otherUser = chatData.other_user;
-          if (otherUser) {
-            chatName = otherUser.first_name && otherUser.last_name 
-              ? `${otherUser.first_name} ${otherUser.last_name}`
-              : otherUser.user_name || chatName;
-            chatAvatar = otherUser.profile_picture || "";
-          }
-        } catch (error) {
-          console.error('Error fetching user details for new chat:', error);
+  const handleNewMessage = async (msg: any) => {
+    const otherUserId = msg.senderId === currentUser?.id ? msg.receiverId : msg.senderId;
+    const existingChatIndex = chats.findIndex(c => c.id === otherUserId);
+    
+    let chatName = `User ${otherUserId}`;
+    let chatAvatar = "";
+    
+    if (existingChatIndex === -1) {
+      try {
+        const chatData = await chatService.accessChat(otherUserId);
+        const otherUser = chatData.other_user;
+        if (otherUser) {
+          chatName = otherUser.first_name ? `${otherUser.first_name} ${otherUser.last_name}` : otherUser.user_name || chatName;
+          chatAvatar = otherUser.profile_picture || "";
         }
+      } catch (error) {
+        console.error('Error accessing chat:', error);
+      }
+    }
+
+    setChats(prevChats => {
+      const updatedExistingIndex = prevChats.findIndex(c => c.id === otherUserId);
+      
+      const updatedChat: Chat = updatedExistingIndex > -1 
+        ? { ...prevChats[updatedExistingIndex] }
+        : {
+            id: otherUserId,
+            type: "personal",
+            name: chatName,
+            avatar: chatAvatar,
+            status: "accepted",
+            unread_count: 0
+          } as Chat;
+
+      updatedChat.message = msg.senderId === currentUser?.id ? `You: ${msg.message}` : msg.message;
+      updatedChat.time = new Date(msg.timestamp).toLocaleTimeString();
+      updatedChat.timestamp = new Date(msg.timestamp).getTime();
+      updatedChat.last_message_time = msg.timestamp;
+      updatedChat.is_last_message_from_me = msg.senderId === currentUser?.id;
+      
+      // For sent messages, check if it's read
+      if (msg.senderId === currentUser?.id) {
+        updatedChat.message_status = msg.isRead || msg.is_read ? 'seen' : 'sent';
+      } else {
+        updatedChat.message_status = 'received';
+      }
+      
+      // Handle unread count
+      if (msg.senderId !== currentUser?.id && activeChat?.other_user?.id !== otherUserId) {
+        updatedChat.unread = true;
+        updatedChat.unread_count = (updatedChat.unread_count || 0) + 1;
+      } else if (msg.senderId !== currentUser?.id && activeChat?.other_user?.id === otherUserId) {
+        chatService.markAllRead(currentUser?.id as any, otherUserId as any);
+        updatedChat.unread = false;
+        updatedChat.unread_count = 0;
       }
 
-      setChats(prevChats => {
-        const updatedExistingIndex = prevChats.findIndex(c => c.id === otherUserId);
-        
-        const updatedChat: Chat = updatedExistingIndex > -1 
-          ? { ...prevChats[updatedExistingIndex] }
-          : {
-              id: otherUserId,
-              type: "personal",
-              name: chatName,
-              avatar: chatAvatar,
-              status: "accepted",
-              unread_count: 0
-            } as Chat;
-
-        updatedChat.message = msg.senderId === currentUser.id ? `You: ${msg.message}` : msg.message;
-        updatedChat.time = new Date(msg.timestamp).toLocaleTimeString();
-        updatedChat.timestamp = new Date(msg.timestamp).getTime();
-        
-        if (msg.senderId !== currentUser.id && activeChat?.other_user?.id !== otherUserId) {
-          updatedChat.unread = true;
-          updatedChat.unread_count = (updatedChat.unread_count || 0) + 1;
-        }
-
-        let newChats = [...prevChats];
-        if (updatedExistingIndex > -1) {
-          newChats.splice(updatedExistingIndex, 1);
-        }
-        return [updatedChat, ...newChats];
-      });
-    };
-
-    const handleMessagesRead = (data: any) => {
-      if (activeChat && activeChat.other_user) {
-        const otherUserId = activeChat.other_user.id;
-        setChats(prevChats =>
-          prevChats.map(c =>
-            c.id === otherUserId
-              ? { ...c, unread: false, unread_count: 0 }
-              : c
-          )
-        );
+      let newChats = [...prevChats];
+      if (updatedExistingIndex > -1) {
+        newChats.splice(updatedExistingIndex, 1);
       }
-    };
+      return [updatedChat, ...newChats];
+    });
+  };
 
-    // Listen for individual message marked as read
-    const handleMessageRead = (data: any) => {
-      const { readBy } = data;
-      // Update the chat list to show message is seen
-      setChats(prevChats =>
-        prevChats.map(c => 
-          c.id === readBy
-            ? { ...c, message_status: 'seen' }
-            : c
-        )
-      );
-    };
+  chatService.onReceiveMessage(handleNewMessage);
+  chatService.onMessageSent(handleNewMessage);
 
-    chatService.onReceiveMessage(handleNewMessage);
-    chatService.onMessageSent(handleNewMessage);
-    chatService.onMessagesRead?.(handleMessagesRead);
-    chatService.onMessageRead?.(handleMessageRead);
-
-    return () => {
-      chatService.offReceiveMessage(handleNewMessage);
-      chatService.offMessageSent(handleNewMessage);
-      chatService.offMessagesRead(handleMessagesRead);
-      chatService.offMessageRead(handleMessageRead);
-      console.log('🗑️ Socket listeners unregistered in AuthChatApp');
-    };
-  }, [currentUser?.id, activeChat, chats]);
+  return () => {
+    chatService.offReceiveMessage(handleNewMessage);
+    chatService.offMessageSent(handleNewMessage);
+  };
+}, [chats, currentUser?.id, activeChat?.other_user?.id]);
 
   useEffect(() => {
-    // Clean up newly created chat once it's in the main chats list
-    if (newlyCreatedChat && chats.some(chat => chat.id === newlyCreatedChat.id)) {
-      setNewlyCreatedChat(null);
-    }
-  }, [chats, newlyCreatedChat]);
+  const handleMessagesRead = (data: any) => {
+    console.log('📨 Received messages_read event:', data);
+    
+    setChats(prevChats =>
+      prevChats.map(chat => {
+        // Update the chat if it's the one where messages were read
+        if (chat.is_last_message_from_me && String(chat.id) === String(data.readBy)) {
+          console.log('✅ Updating chat status to seen for:', chat.name);
+          return { 
+            ...chat, 
+            message_status: 'seen',
+            // Update the timestamp to trigger re-render with new "seen X time ago"
+            last_message_time: chat.last_message_time || new Date().toISOString()
+          };
+        }
+        return chat;
+      })
+    );
+  };
+
+  const handleSingleMessageRead = (data: any) => {
+    console.log('📨 Received message_read event:', data);
+    // Find which chat this message belongs to and update its status if it's the last message
+    setChats(prevChats => 
+      prevChats.map(chat => {
+        if (chat.is_last_message_from_me && String(chat.id) === String(data.readBy)) {
+          return { ...chat, message_status: 'seen' };
+        }
+        return chat;
+      })
+    );
+  };
+
+  chatService.onMessagesRead(handleMessagesRead);
+  chatService.onMessageRead(handleSingleMessageRead);
+
+  return () => {
+    chatService.offMessagesRead(handleMessagesRead);
+    chatService.offMessageRead(handleSingleMessageRead);
+  };
+}, []);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   return (
     <ProtectedRoute>
       <div className="flex h-screen bg-gray-100">
-        <Siderbard 
+        <Sidebar 
+          chats={chats}
+          selectedChat={selectedChat}
+          onChatSelect={handleSelectChat}
+          currentUser={currentUser}
+          onLogout={() => {
+            // Handle logout logic here
+          }}
           onProfileClick={() => setShowProfile(true)}
         />
-                <MessageList
+        <MessageList
           activeChat={activeChat}
           setActiveChat={handleSelectChat}
           isMobile={isMobile}
           onCloseChat={handleCloseChat}
           chats={chats}
           setChats={setChats}
-          onAddNewChat={handleAddNewChat}
+          onAddNewChat={(chat) => setChats(prev => [chat, ...prev])}
           onSelectChat={handleSelectChat}
         />
-                {(!isMobile || activeChat) && (
+        {(!isMobile || activeChat) && (
           <div className={`${isMobile ? 'fixed inset-0 z-50' : 'flex-1'} bg-white`}>
-                        <ChatWindow
+            <ChatWindow
               activeChat={activeChat}
               setActiveChat={setActiveChat}
               isMobile={isMobile}
               onOpenList={handleCloseChat}
               chats={chats}
               setChats={setChats}
-              newlyCreatedChat={newlyCreatedChat}
             />
           </div>
         )}
