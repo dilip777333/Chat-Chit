@@ -14,7 +14,6 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [username, setUsername] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
@@ -91,17 +90,12 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           formData.append('phone_number', phoneNumber);
         }
         
-        if (password.trim()) {
-          formData.append('password', password);
-        }
-        
         result = await authService.uploadProfilePicture(formData); // Token from cookie
       } else {
         const updateData = {
           user_name: username,
           email: email.trim() || undefined,
           phone_number: phoneNumber.trim() || undefined,
-          password: password.trim() || undefined,
         };
         result = await authService.updateProfile(updateData);
       }
@@ -121,7 +115,6 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           setProfileImage(result.user.profile_picture || null);
         }
         
-        setPassword("");
         
         onClose();
       } else {
@@ -230,23 +223,10 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Leave empty to keep current password"
-                  className="w-full px-4 py-3 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
               <button
                 onClick={handleUpdateProfile}
                 disabled={isLoading || !username.trim() || (!email.trim() && !phoneNumber.trim())}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-linear-to-r from-blue-500 to-purple-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading && <Loader2 className="animate-spin" size={20} />}
                 {isLoading ? "Updating..." : "Update Profile"}

@@ -5,10 +5,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { chatService } from "@/lib/services/chatService";
 import { Chat } from "@/types/chat";
 
-const timeAgo = (timestamp: Date | string | number | undefined): string => {
+const timeAgo = (timestamp: Date | string | number | undefined, now: Date = new Date()): string => {
   if (!timestamp) return '';
   
-  const now = new Date();
   const date = new Date(timestamp);
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
   
@@ -45,6 +44,16 @@ export default function MessageList({
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update timestamps every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!Array.isArray(chats)) return;
@@ -104,6 +113,15 @@ export default function MessageList({
       setSearchTerm("");
       setSearchResults([]);
 
+      // Mark chat as read when opened
+      setChats((prevChats: Chat[]) => 
+        prevChats.map(chat => 
+          String(chat.id) === String(userId) 
+            ? { ...chat, unread: 0, unreadCount: 0, unread_count: 0 }
+            : chat
+        )
+      );
+
       if (isMobile && onCloseChat) {
         onCloseChat();
       }
@@ -115,14 +133,14 @@ export default function MessageList({
   // Helper function to get the status text
   const getStatusText = (chat: Chat): string => {
     if (chat.is_last_message_from_me) {
-      const time = timeAgo(chat.last_message_time);
+      const time = timeAgo(chat.last_message_time, currentTime);
       if (chat.message_status === 'seen') {
         return `seen ${time}`;
       } else {
         return `sent ${time}`;
       }
     } else {
-      return timeAgo(chat.last_message_time);
+      return timeAgo(chat.last_message_time, currentTime);
     }
   };
 
@@ -197,6 +215,7 @@ export default function MessageList({
               const isActive = activeChat && String(activeChat.id) === String(chat.id);
               const statusText = getStatusText(chat);
               const isSeen = chat.is_last_message_from_me && chat.message_status === 'seen';
+              const hasUnread = (chat.unread_count || chat.unreadCount || 0) > 0 && !chat.is_last_message_from_me;
               
               return (
                 <div
@@ -221,8 +240,15 @@ export default function MessageList({
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center">
                         <div className="font-medium truncate text-gray-200">{chat.name}</div>
-                        <div className={`text-xs ${isSeen ? 'text-blue-400 font-medium' : 'text-gray-500'}`}>
-                          {statusText}
+                        <div className="flex flex-col items-end">
+                          <div className={`text-xs ${isSeen ? 'text-blue-400 font-medium' : 'text-gray-500'}`}>
+                            {statusText}
+                          </div>
+                          {hasUnread && (chat.unread_count || chat.unreadCount || 0) > 0 && (
+                            <div className="mt-1 bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center">
+                              {chat.unread_count || chat.unreadCount || 0}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex justify-between items-center">

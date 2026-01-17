@@ -221,29 +221,6 @@ export default function ChatWindow({
     setShowEmojiPicker(false);
 
     try {
-      if (setChats) {
-        setChats((prevChats: Chat[]) => {
-          const updatedChats = prevChats.map(chat =>
-            chat.id === receiverId
-              ? {
-                  ...chat,
-                  message: `You: ${messageText}`,
-                  time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  timestamp: timestamp.getTime(),
-                  is_last_message_from_me: true,
-                  message_status: 'sent'
-                }
-              : chat
-          );
-          const chatIndex = updatedChats.findIndex(c => c.id === receiverId);
-          if (chatIndex > 0) {
-            const [chat] = updatedChats.splice(chatIndex, 1);
-            updatedChats.unshift(chat);
-          }
-          return updatedChats;
-        });
-      }
-
       await chatService.sendMessage({
         senderId: currentUser.id,
         receiverId: receiverId,

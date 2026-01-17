@@ -44,13 +44,13 @@ export default function AuthChatApp() {
 
       setChats(prevChats =>
         prevChats.map(c =>
-          c.id === otherUserId
+          String(c.id) === String(otherUserId)
             ? { ...c, unread: false, unread_count: 0 }
             : c
         )
       );
 
-      if (!chats.some(c => c.id === otherUserId)) {
+      if (!chats.some(c => String(c.id) === String(otherUserId))) {
         const newChat: Chat = {
           id: otherUserId,
           type: "personal",
@@ -128,122 +128,100 @@ export default function AuthChatApp() {
   }, [currentUser?.id]);
 
   useEffect(() => {
-  const handleNewMessage = async (msg: any) => {
-    const otherUserId = msg.senderId === currentUser?.id ? msg.receiverId : msg.senderId;
-    const existingChatIndex = chats.findIndex(c => c.id === otherUserId);
-    
-    let chatName = `User ${otherUserId}`;
-    let chatAvatar = "";
-    
-    if (existingChatIndex === -1) {
-      try {
-        const chatData = await chatService.accessChat(otherUserId);
-        const otherUser = chatData.other_user;
-        if (otherUser) {
-          chatName = otherUser.first_name ? `${otherUser.first_name} ${otherUser.last_name}` : otherUser.user_name || chatName;
-          chatAvatar = otherUser.profile_picture || "";
-        }
-      } catch (error) {
-        console.error('Error accessing chat:', error);
-      }
-    }
+    if (!currentUser?.id) return;
 
-    setChats(prevChats => {
-      const updatedExistingIndex = prevChats.findIndex(c => c.id === otherUserId);
+    const handleNewMessage = (msg: any) => {
+      const currentUserIdStr = String(currentUser.id);
+      const senderIdStr = String(msg.senderId);
+      const receiverIdStr = String(msg.receiverId);
       
-      const updatedChat: Chat = updatedExistingIndex > -1 
-        ? { ...prevChats[updatedExistingIndex] }
-        : {
-            id: otherUserId,
-            type: "personal",
-            name: chatName,
-            avatar: chatAvatar,
-            status: "accepted",
-            unread_count: 0
-          } as Chat;
-
-      updatedChat.message = msg.senderId === currentUser?.id ? `You: ${msg.message}` : msg.message;
-      updatedChat.time = new Date(msg.timestamp).toLocaleTimeString();
-      updatedChat.timestamp = new Date(msg.timestamp).getTime();
-      updatedChat.last_message_time = msg.timestamp;
-      updatedChat.is_last_message_from_me = msg.senderId === currentUser?.id;
+      const otherUserId = senderIdStr === currentUserIdStr ? receiverIdStr : senderIdStr;
       
-      // For sent messages, check if it's read
-      if (msg.senderId === currentUser?.id) {
-        updatedChat.message_status = msg.isRead || msg.is_read ? 'seen' : 'sent';
-      } else {
-        updatedChat.message_status = 'received';
-      }
-      
-      // Handle unread count
-      if (msg.senderId !== currentUser?.id && activeChat?.other_user?.id !== otherUserId) {
-        updatedChat.unread = true;
-        updatedChat.unread_count = (updatedChat.unread_count || 0) + 1;
-      } else if (msg.senderId !== currentUser?.id && activeChat?.other_user?.id === otherUserId) {
-        chatService.markAllRead(currentUser?.id as any, otherUserId as any);
-        updatedChat.unread = false;
-        updatedChat.unread_count = 0;
-      }
+      setChats(prevChats => {
+        const updatedExistingIndex = prevChats.findIndex(c => String(c.id) === String(otherUserId));
+        
+        const updatedChat: Chat = updatedExistingIndex > -1 
+          ? { ...prevChats[updatedExistingIndex] }
+          : {
+              id: otherUserId,
+              type: "personal",
+              name: msg.senderName || `User ${otherUserId}`,
+              avatar: msg.senderAvatar || "",
+              status: "accepted",
+              unread_count: 0
+            } as Chat;
 
-      let newChats = [...prevChats];
-      if (updatedExistingIndex > -1) {
-        newChats.splice(updatedExistingIndex, 1);
-      }
-      return [updatedChat, ...newChats];
-    });
-  };
-
-  chatService.onReceiveMessage(handleNewMessage);
-  chatService.onMessageSent(handleNewMessage);
-
-  return () => {
-    chatService.offReceiveMessage(handleNewMessage);
-    chatService.offMessageSent(handleNewMessage);
-  };
-}, [chats, currentUser?.id, activeChat?.other_user?.id]);
-
-  useEffect(() => {
-  const handleMessagesRead = (data: any) => {
-    console.log('📨 Received messages_read event:', data);
-    
-    setChats(prevChats =>
-      prevChats.map(chat => {
-        // Update the chat if it's the one where messages were read
-        if (chat.is_last_message_from_me && String(chat.id) === String(data.readBy)) {
-          console.log('✅ Updating chat status to seen for:', chat.name);
-          return { 
-            ...chat, 
-            message_status: 'seen',
-            // Update the timestamp to trigger re-render with new "seen X time ago"
-            last_message_time: chat.last_message_time || new Date().toISOString()
-          };
+        updatedChat.message = senderIdStr === currentUserIdStr ? `You: ${msg.message}` : msg.message;
+        updatedChat.time = new Date(msg.timestamp).toLocaleTimeString();
+        updatedChat.timestamp = new Date(msg.timestamp).getTime();
+        updatedChat.last_message_time = msg.timestamp;
+        updatedChat.is_last_message_from_me = senderIdStr === currentUserIdStr;
+        
+        if (senderIdStr === currentUserIdStr) {
+          updatedChat.message_status = msg.isRead || msg.is_read ? 'seen' : 'sent';
+        } else {
+          updatedChat.message_status = 'received';
         }
-        return chat;
-      })
-    );
-  };
+        
+        // Use a ref-like approach to get current activeChat if possible, but for now we use the one from closure
+        // Note: activeChat might be stale here if we don't include it in dependencies
+        const isActiveChat = activeChat && String(activeChat.other_user?.id || activeChat.id) === String(otherUserId);
 
-  const handleSingleMessageRead = (data: any) => {
-    console.log('📨 Received message_read event:', data);
-    // Find which chat this message belongs to and update its status if it's the last message
-    setChats(prevChats => 
-      prevChats.map(chat => {
-        if (chat.is_last_message_from_me && String(chat.id) === String(data.readBy)) {
-          return { ...chat, message_status: 'seen' };
+        if (senderIdStr !== currentUserIdStr && !isActiveChat) {
+          updatedChat.unread = true;
+          updatedChat.unread_count = (updatedChat.unread_count || 0) + 1;
+        } else if (senderIdStr !== currentUserIdStr && isActiveChat) {
+          chatService.markAllRead(currentUserIdStr, otherUserId);
+          updatedChat.unread = false;
+          updatedChat.unread_count = 0;
         }
-        return chat;
-      })
-    );
-  };
 
-  chatService.onMessagesRead(handleMessagesRead);
-  chatService.onMessageRead(handleSingleMessageRead);
+        const newChats = [...prevChats];
+        if (updatedExistingIndex > -1) {
+          newChats.splice(updatedExistingIndex, 1);
+        }
+        return [updatedChat, ...newChats];
+      });
+    };
 
-  return () => {
-    chatService.offMessagesRead(handleMessagesRead);
-    chatService.offMessageRead(handleSingleMessageRead);
-  };
-}, []);
+    const handleMessagesRead = (data: any) => {
+      setChats(prevChats =>
+        prevChats.map(chat => {
+          if (chat.is_last_message_from_me && String(chat.id) === String(data.readBy)) {
+            return { 
+              ...chat, 
+              message_status: 'seen',
+              last_message_time: chat.last_message_time || new Date().toISOString()
+            };
+          }
+          return chat;
+        })
+      );
+    };
+
+    const handleSingleMessageRead = (data: any) => {
+      setChats(prevChats => 
+        prevChats.map(chat => {
+          if (chat.is_last_message_from_me && String(chat.id) === String(data.readBy)) {
+            return { ...chat, message_status: 'seen' };
+          }
+          return chat;
+        })
+      );
+    };
+
+    chatService.onReceiveMessage(handleNewMessage);
+    chatService.onMessageSent(handleNewMessage);
+    chatService.onMessagesRead(handleMessagesRead);
+    chatService.onMessageRead(handleSingleMessageRead);
+
+    return () => {
+      chatService.offReceiveMessage(handleNewMessage);
+      chatService.offMessageSent(handleNewMessage);
+      chatService.offMessagesRead(handleMessagesRead);
+      chatService.offMessageRead(handleSingleMessageRead);
+    };
+  }, [currentUser?.id, activeChat?.id, activeChat?.other_user?.id]);
 
   if (isLoading) {
     return <div>Loading...</div>;
